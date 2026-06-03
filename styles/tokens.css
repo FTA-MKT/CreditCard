@@ -1,0 +1,218 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   FTA Studio Design System — Tokens  (UI-optimized 2026-06)
+   Source: ryki-d/fta-studio  lib/theme/defaults.ts + app/globals.css
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* Roboto — FTA primary typeface */
+@import url("https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap");
+
+:root {
+  /* ── FTA Palette: Primary (deep blue) ─────────────────────────────────── */
+  --fta-primary-1: #EBF1FF;
+  --fta-primary-2: #B3C7ED;
+  --fta-primary-3: #839FDB;
+  --fta-primary-4: #5979C8;
+  --fta-primary-5: #3555B6;
+  --fta-primary-6: #1634A4; /* ⭐ brand primary */
+  --fta-primary-7: #0E268E;
+
+  /* ── FTA Palette: Secondary (teal) ────────────────────────────────────── */
+  --fta-secondary-1: #E8FFFB;
+  --fta-secondary-2: #BFF4ED;
+  --fta-secondary-3: #99E9E1;
+  --fta-secondary-4: #76DFD8;
+  --fta-secondary-5: #55D4D0; /* ⭐ secondary */
+  --fta-secondary-6: #37C9C9;
+  --fta-secondary-7: #23A5AA;
+
+  /* ── Lines & borders ──────────────────────────────────────────────────── */
+  --fta-line-1: #FFFFFF;
+  --fta-line-2: #F2F3F5;
+  --fta-line-3: #E2E4E9; /* default border — slightly cooler & more refined */
+  --fta-line-4: #C9CDD4;
+  --fta-line-5: #86909C;
+
+  /* ── Fills (surface, hover, container) ────────────────────────────────── */
+  --fta-fill-1: #FFFFFF;
+  --fta-fill-2: #F7F8FA;
+  --fta-fill-3: #F2F3F5;
+  --fta-fill-4: #E5E6EB;
+  --fta-fill-5: #C9CDD4;
+  --fta-fill-6: #86909C;
+  --fta-fill-7: #4E5969;
+  --fta-fill-8: #1D2129;
+
+  /* ── Text scale ───────────────────────────────────────────────────────── */
+  --fta-text-1: #FFFFFF; /* inverse */
+  --fta-text-2: #C9CDD4; /* disabled */
+  --fta-text-3: #8A94A6; /* muted / tertiary (slightly cooler) */
+  --fta-text-4: #4E5969; /* secondary */
+  --fta-text-5: #1A2033; /* primary body (slightly cooler ink) */
+
+  /* ── Backgrounds ──────────────────────────────────────────────────────── */
+  --fta-bg-1: #FFFFFF;      /* card / panel surfaces */
+  --fta-bg-2: #F5F6F8;      /* page canvas — the "table" that cards sit on */
+
+  /* ── Semantic ─────────────────────────────────────────────────────────── */
+  --fta-success:     #00B42A;
+  --fta-success-bg:  #EDFFF2;
+  --fta-warning:     #FF7D00;
+  --fta-warning-bg:  #FFF8EE;
+  --fta-destructive: #F53F3F;
+  --fta-danger-bg:   #FFF0F0;
+  --fta-info:        #3555B6;
+  --fta-info-bg:     #EBF1FF;
+
+  /* ── Chart palette (10) ───────────────────────────────────────────────── */
+  --fta-chart-1: #5598F5;
+  --fta-chart-2: #55D4D0;
+  --fta-chart-3: #F1A943;
+  --fta-chart-4: #77CF64;
+  --fta-chart-5: #C14FC4;
+  --fta-chart-6: #F9615B;
+  --fta-chart-7: #E1D73B;
+  --fta-chart-8: #B972E8;
+  --fta-chart-9: #0F53BE;
+  --fta-chart-10: #5872C1;
+
+  /* ── Semantic aliases (shadcn-compatible) ─────────────────────────────── */
+  --background:            var(--fta-bg-1);
+  --canvas:                var(--fta-bg-2);
+  --foreground:            var(--fta-text-5);
+  --primary:               var(--fta-primary-6);
+  --primary-foreground:    var(--fta-text-1);
+  --secondary:             var(--fta-fill-2);
+  --secondary-foreground:  var(--fta-text-5);
+  --accent:                var(--fta-primary-1);
+  --accent-foreground:     var(--fta-primary-6);
+  --muted:                 var(--fta-fill-2);
+  --muted-foreground:      var(--fta-text-3);
+  --card:                  var(--fta-bg-1);
+  --card-foreground:       var(--fta-text-5);
+  --popover:               var(--fta-bg-1);
+  --popover-foreground:    var(--fta-text-5);
+  --border:                var(--fta-line-3);
+  --input:                 var(--fta-line-3);
+  --ring:                  var(--fta-primary-6);
+  --destructive:           var(--fta-destructive);
+  --destructive-foreground:var(--fta-text-1);
+  --success:               var(--fta-success);
+  --success-foreground:    var(--fta-text-1);
+  --warning:               var(--fta-warning);
+  --warning-foreground:    var(--fta-text-1);
+  --info:                  var(--fta-info);
+  --info-foreground:       var(--fta-text-1);
+
+  /* ── Shape ─────────────────────────────────────────────────────────────── */
+  --r-xs:   2px;
+  --r-sm:   4px;
+  --r-md:   6px;   /* buttons, inputs, selects */
+  --r-lg:   8px;   /* smaller cards, chips */
+  --r-xl:   10px;  /* main cards */
+  --r-2xl:  14px;  /* modals, drawers */
+  --r-full: 9999px;
+
+  /* legacy aliases so existing uses don't break */
+  --radius:      var(--r-md);
+  --radius-sm:   var(--r-xs);
+  --radius-md:   var(--r-sm);
+  --radius-lg:   var(--r-md);
+  --radius-xl:   var(--r-lg);
+  --radius-2xl:  var(--r-lg);
+  --radius-card: var(--r-xl);
+
+  /* ── Shadow system ─────────────────────────────────────────────────────── */
+  /* xs — inset UI elements / inputs */
+  --shadow-xs:     0 1px 2px 0 rgba(18, 20, 36, 0.05);
+  /* sm — cards, default */
+  --shadow-sm:     0 1px 3px 0 rgba(18, 20, 36, 0.07), 0 1px 2px -1px rgba(18, 20, 36, 0.05);
+  /* md — dropdowns, popovers */
+  --shadow-md:     0 4px 10px -2px rgba(18, 20, 36, 0.09), 0 2px 4px -2px rgba(18, 20, 36, 0.06);
+  /* lg — modals, drawers */
+  --shadow-lg:     0 12px 28px -6px rgba(18, 20, 36, 0.12), 0 4px 10px -4px rgba(18, 20, 36, 0.08);
+  /* legacy alias */
+  --shadow-soft:   var(--shadow-sm);
+  --shadow-medium: var(--shadow-md);
+  --shadow-strong: var(--shadow-lg);
+
+  /* ── Spacing scale ──────────────────────────────────────────────────────── */
+  --spacing: 0.25rem;
+  --space-1: 0.25rem;  /*  4px */
+  --space-2: 0.5rem;   /*  8px */
+  --space-3: 0.75rem;  /* 12px */
+  --space-4: 1rem;     /* 16px */
+  --space-5: 1.25rem;  /* 20px */
+  --space-6: 1.5rem;   /* 24px */
+  --space-8: 2rem;     /* 32px */
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+
+  /* ── Layout ──────────────────────────────────────────────────────────────── */
+  --sidebar-width:           216px;
+  --sidebar-collapsed-width:  56px;
+  --topbar-height:            60px;
+  --content-max-width:      1400px;
+  --content-pad:              24px;
+
+  /* ── Typography: families ──────────────────────────────────────────────── */
+  --font-sans: "Roboto", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Liberation Mono", monospace;
+  --font-serif: "Merriweather", Georgia, serif;
+
+  /* ── Type scale ────────────────────────────────────────────────────────── */
+  --text-xs:   11px;  /* 11/16 — meta, table header */
+  --text-sm:   13px;  /* 13/18 — body default, table cells */
+  --text-base: 14px;  /* 14/20 — card titles, nav */
+  --text-md:   16px;  /* 16/24 — section titles */
+  --text-lg:   18px;
+  --text-xl:   20px;
+  --text-2xl:  24px;  /* page titles */
+  --text-3xl:  30px;
+  --text-4xl:  36px;
+
+  --leading-tight:  1.2;
+  --leading-snug:   1.4;
+  --leading-normal: 1.5;
+
+  --weight-regular:  400;
+  --weight-medium:   500;
+  --weight-semibold: 600;
+  --weight-bold:     700;
+
+  --tracking-tight:  -0.015em;
+  --tracking-normal:  0;
+  --tracking-wide:    0.025em;
+
+  /* ── Motion ─────────────────────────────────────────────────────────────── */
+  --duration-fast:   100ms;
+  --duration-normal: 160ms;
+  --duration-slow:   240ms;
+  --ease-default:    cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* ── Base ────────────────────────────────────────────────────────────────── */
+html, body {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  color: var(--foreground);
+  background: var(--canvas);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, .h1 { font-size: var(--text-2xl); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-tight); line-height: var(--leading-tight); color: var(--foreground); margin: 0; }
+h2, .h2 { font-size: var(--text-xl);  font-weight: var(--weight-semibold); letter-spacing: var(--tracking-tight); line-height: var(--leading-snug);  color: var(--foreground); margin: 0; }
+h3, .h3 { font-size: var(--text-md);  font-weight: var(--weight-semibold); letter-spacing: var(--tracking-tight); line-height: var(--leading-snug);  color: var(--foreground); margin: 0; }
+h4, .h4 { font-size: var(--text-base);font-weight: var(--weight-semibold); color: var(--foreground); margin: 0; }
+
+p       { color: var(--foreground); font-size: var(--text-sm); line-height: var(--leading-normal); margin: 0; }
+small, .meta { color: var(--muted-foreground); font-size: var(--text-xs); }
+code, pre, .mono { font-family: var(--font-mono); font-size: 0.9em; letter-spacing: 0; }
+
+/* Thin scrollbars */
+* { scrollbar-width: thin; scrollbar-color: rgba(134, 144, 156, 0.4) transparent; }
+*::-webkit-scrollbar         { width: 5px; height: 5px; }
+*::-webkit-scrollbar-track   { background: transparent; }
+*::-webkit-scrollbar-thumb   { background: rgba(134, 144, 156, 0.35); border-radius: 9999px; }
+*::-webkit-scrollbar-thumb:hover { background: rgba(78, 89, 105, 0.45); }
