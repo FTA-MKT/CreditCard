@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:api.anthropic.com)",
+      "Bash(gunzip -c webfetch-1780485276971-mom721.bin)",
+      "Bash(zcat webfetch-1780485276971-mom721.bin)",
+      "Read(//private/tmp/design_bundle/credit-card/project/**)",
+      "Skill(claude-api)",
+      "Skill(claude-api:*)",
+      "Read(//private/tmp/CreditCard/**)",
+      "Bash(node -e ' *)"
+    ]
+  }
+}
