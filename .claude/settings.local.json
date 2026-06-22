@@ -8,7 +8,28 @@
       "Skill(claude-api)",
       "Skill(claude-api:*)",
       "Read(//private/tmp/CreditCard/**)",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(python3 -)",
+      "Bash(ls \"/Volumes/lcy/credit card/\" && echo \"---\" && ls \"/Users/Li Cyang/Desktop/CreditCard/\" 2>/dev/null || echo \"Desktop path not found\")",
+      "Bash(find /Users -name \"credit-card*.html\" -o -name \"create-credit-card*.html\" 2>/dev/null | grep -v \".Trash\")",
+      "Bash(find /Volumes -name \"*.html\" 2>/dev/null | grep -v \".Trash\" | grep -v \"standalone\")",
+      "Bash(git pull *)",
+      "Bash(git push *)",
+      "Bash(npm --version)",
+      "Read(//usr/local/bin/**)",
+      "Read(//Users/Li Cyang/.nvm/versions/**)",
+      "Bash(/usr/local/bin/npm --version)",
+      "Bash(ls /opt/homebrew/bin/ 2>/dev/null | grep -E 'node|npm|yarn|pnpm|bun' || echo \"homebrew not found or empty\"; find /usr -name \"npm\" -type f 2>/dev/null | head -5; find /opt -name \"npm\" -type f 2>/dev/null | head -5)",
+      "Bash(/usr/local/lib/node_modules/corepack/shims/npm --version)",
+      "Bash(/usr/local/lib/node_modules/corepack/shims/npm approve-scripts *)",
+      "Bash(/usr/local/lib/node_modules/corepack/shims/npm install *)",
+      "Bash(/usr/local/lib/node_modules/corepack/shims/npm run *)",
+      "Bash(curl -s http://localhost:5173)",
+      "Bash(lsof -i :5173 -sTCP:LISTEN)",
+      "mcp__Claude_Preview__preview_start",
+      "mcp__Claude_in_Chrome__navigate",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "Bash(git add *)"
     ]
   }
 }

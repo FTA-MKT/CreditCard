@@ -1,0 +1,401 @@
+// AppData — centralised mock data for the Card Issuance prototype
+
+// ── Dashboard ──────────────────────────────────────────────────
+const kpis = [
+  { id: 'k1', label: 'Total Active Cards',       value: '127,051',    unit: null,  delta: '+2.4%',  dir: 'up',   icon: 'card',    tone: 'navy',  help: true },
+  { id: 'k2', label: 'Transactions (7d)',         value: '6,184,210',  unit: null,  delta: '+8.1%',  dir: 'up',   icon: 'chart',   tone: 'blue',  help: false },
+  { id: 'k3', label: 'Open Disputes',             value: '36',         unit: null,  delta: '-12.0%', dir: 'down', icon: 'message', tone: 'peach', help: false },
+  { id: 'k4', label: 'Fraud Alert Rate',          value: '0.24',       unit: '%',   delta: '-0.03%', dir: 'down', icon: 'shield',  tone: 'green', help: true },
+];
+
+const monthly = [
+  { m: 'Jan', settled: 82,  dispute: 12 },
+  { m: 'Feb', settled: 95,  dispute: 18 },
+  { m: 'Mar', settled: 110, dispute: 15 },
+  { m: 'Apr', settled: 130, dispute: 22 },
+  { m: 'May', settled: 144, dispute: 19 },
+  { m: 'Jun', settled: 162, dispute: 28 },
+  { m: 'Jul', settled: 178, dispute: 24 },
+  { m: 'Aug', settled: 196, dispute: 31 },
+  { m: 'Sep', settled: 184, dispute: 26 },
+  { m: 'Oct', settled: 215, dispute: 34 },
+  { m: 'Nov', settled: 228, dispute: 38 },
+  { m: 'Dec', settled: 240, dispute: 42 },
+];
+
+const weekly = [
+  { d: 'Mon', v: 612.40 },
+  { d: 'Tue', v: 780.20 },
+  { d: 'Wed', v: 540.10 },
+  { d: 'Thu', v: 860.55 },
+  { d: 'Fri', v: 720.30 },
+  { d: 'Sat', v: 490.75 },
+  { d: 'Sun', v: 320.15 },
+];
+
+const categories = [
+  { name: 'Online Retail',  color: '#5598F5', value: 284210.55, pct: 28.4 },
+  { name: 'Groceries',      color: '#55D4D0', value: 184320.40, pct: 18.4 },
+  { name: 'Travel',         color: '#F1A943', value: 142180.22, pct: 14.2 },
+  { name: 'Dining',         color: '#77CF64', value: 98440.10,  pct: 9.8 },
+  { name: 'Fuel',           color: '#C14FC4', value: 76320.80,  pct: 7.6 },
+  { name: 'Entertainment',  color: '#F9615B', value: 61240.90,  pct: 6.1 },
+  { name: 'Health',         color: '#E1D73B', value: 54180.30,  pct: 5.4 },
+  { name: 'Subscriptions',  color: '#B972E8', value: 38120.15,  pct: 3.8 },
+  { name: 'Electronics',    color: '#0F53BE', value: 32840.60,  pct: 3.3 },
+  { name: 'Other',          color: '#5872C1', value: 28140.98,  pct: 3.0 },
+];
+
+const recentDisputes = [
+  { holder: 'Alice Johnson',    card: '**** 4142', status: 'Pending Customer', amount: 284.50 },
+  { holder: 'Carlos Rivera',    card: '**** 8211', status: 'Submitted',        amount: 1240.00 },
+  { holder: 'Emma Thompson',    card: '**** 6190', status: 'Representment',    amount: 89.99 },
+  { holder: 'James Wilson',     card: '**** 3022', status: 'Case Won',         amount: 512.40 },
+  { holder: 'Sofia Martinez',   card: '**** 7711', status: 'Prearbitration',   amount: 3200.00 },
+];
+
+// ── Programs ──────────────────────────────────────────────────
+const programs = [
+  { id: 'PRG-001', name: 'Neo Banking Rewards',
+    description: 'Premium rewards program for Neo Banking customers — cashback, travel benefits, and low FX fees.',
+    contact: 'Brian W. Johnson', contactPhone: '(207) 555-0119', contactEmail: 'bwj@neobank.com', contactAddress: '2715 Ash Dr. San Jose, South Dakota 83475',
+    manager: 'Alice Cooper',     managerPhone: '(207) 555-0110', managerEmail: 'alice.cooper@fintechautomation.com', managerAddress: '2715 Ash Dr. San Jose, South Dakota 83475',
+    businessName: 'Neo Banking Corp', industry: 'Financial Services',
+    subs: 4, cards: 84210, status: 'Active', updated: '03/10/2024' },
+  { id: 'PRG-002', name: 'Allegra Travel Elite',
+    description: 'Travel-focused credit program with premium airport lounge access and no foreign transaction fees.',
+    contact: 'Maria Santos',     contactPhone: '(415) 555-0184', contactEmail: 'msantos@allegra.com', contactAddress: '18 Market St, San Francisco, CA 94105',
+    manager: 'David Kim',        managerPhone: '(415) 555-0191', managerEmail: 'david.kim@fintechautomation.com', managerAddress: '18 Market St, San Francisco, CA 94105',
+    businessName: 'Allegra Financial Inc.', industry: 'Travel and Hospitality',
+    subs: 2, cards: 28440, status: 'Active', updated: '03/08/2024' },
+  { id: 'PRG-003', name: 'SMB Cashback Plus',
+    description: 'Business cashback program designed for small and medium enterprises with category-based rewards.',
+    contact: 'Robert Chen',      contactPhone: '(312) 555-0162', contactEmail: 'rchen@smbcash.io', contactAddress: '500 W Madison St, Chicago, IL 60661',
+    manager: 'Lisa Fernandez',   managerPhone: '(312) 555-0173', managerEmail: 'lisa.fernandez@fintechautomation.com', managerAddress: '500 W Madison St, Chicago, IL 60661',
+    businessName: 'SMB Cashback LLC', industry: 'Financial Services',
+    subs: 3, cards: 14401, status: 'Active', updated: '02/28/2024' },
+  { id: 'PRG-004', name: 'Campus Starter',
+    description: 'Entry-level credit card program for college students building their first credit history.',
+    contact: 'Emily Davis',      contactPhone: '(617) 555-0145', contactEmail: 'edavis@campusstarter.edu', contactAddress: '77 Massachusetts Ave, Cambridge, MA 02139',
+    manager: 'Mark Williams',    managerPhone: '(617) 555-0156', managerEmail: 'mark.williams@fintechautomation.com', managerAddress: '77 Massachusetts Ave, Cambridge, MA 02139',
+    businessName: 'Campus Financial Services', industry: 'Education',
+    subs: 1, cards: 6820, status: 'Under Review', updated: '02/14/2024' },
+  { id: 'PRG-005', name: 'Fleet Express Corp',
+    description: 'Fleet management card program for corporate vehicle expenses and fuel management.',
+    contact: 'Tom Mitchell',     contactPhone: '(214) 555-0137', contactEmail: 'tmitchell@fleetexpress.com', contactAddress: '1600 Commerce St, Dallas, TX 75201',
+    manager: 'Sarah Johnson',    managerPhone: '(214) 555-0148', managerEmail: 'sarah.johnson@fintechautomation.com', managerAddress: '1600 Commerce St, Dallas, TX 75201',
+    businessName: 'Fleet Express Corp', industry: 'Financial Services',
+    subs: 2, cards: 3180, status: 'Inactive', updated: '01/20/2024' },
+];
+
+const subPrograms = [
+  { id: 'SUB-001', name: 'NB Rewards — Platinum',   programId: 'PRG-001', description: 'Platinum tier with premium travel perks and high rewards rate.',
+    bin: '441201', network: 'Visa',       cardType: 'credit', type: 'Physical', usageType: 'Multi-use', classification: 'Consumer', validPeriod: '3 Years',
+    creditMin: '5000', creditMax: '20000', purchaseApr: '18.99', billingCycle: 'Monthly – 1st', gracePeriod: '25', cards: 42100, status: 'Active' },
+  { id: 'SUB-002', name: 'NB Rewards — Virtual',    programId: 'PRG-001', description: 'Virtual card for online and app-based spending.',
+    bin: '441202', network: 'Visa',       cardType: 'credit', type: 'Virtual',  usageType: 'Multi-use', classification: 'Consumer', validPeriod: '2 Years',
+    creditMin: '1000', creditMax: '10000', purchaseApr: '21.99', billingCycle: 'Monthly – 1st', gracePeriod: '25', cards: 28440, status: 'Active' },
+  { id: 'SUB-003', name: 'NB Rewards — Basic',      programId: 'PRG-001', description: 'Entry-level physical card with standard rewards.',
+    bin: '441203', network: 'Mastercard', cardType: 'credit', type: 'Physical', usageType: 'Multi-use', classification: 'Consumer', validPeriod: '3 Years',
+    creditMin: '500',  creditMax: '5000',  purchaseApr: '24.99', billingCycle: 'Monthly – 15th', gracePeriod: '21', cards: 13670, status: 'Active' },
+  { id: 'SUB-004', name: 'NB Rewards — Business',   programId: 'PRG-001', description: 'Business tier card with expense management tools.',
+    bin: '441204', network: 'Mastercard', cardType: 'credit', type: 'Physical', usageType: 'Multi-use', classification: 'Commercial', validPeriod: '3 Years',
+    creditMin: '2000', creditMax: '50000', purchaseApr: '17.99', billingCycle: 'Monthly – 1st', gracePeriod: '30', cards: 4200,  status: 'Under Review' },
+  { id: 'SUB-005', name: 'Allegra Travel — World',  programId: 'PRG-002', description: 'World-tier travel card with global lounge access.',
+    bin: '528101', network: 'Mastercard', cardType: 'credit', type: 'Physical', usageType: 'Multi-use', classification: 'Consumer', validPeriod: '5 Years',
+    creditMin: '5000', creditMax: '30000', purchaseApr: '19.99', billingCycle: 'Monthly – 1st', gracePeriod: '25', cards: 18320, status: 'Active' },
+  { id: 'SUB-006', name: 'Allegra Travel — Base',   programId: 'PRG-002', description: 'Standard travel card with core travel benefits.',
+    bin: '528102', network: 'Visa',       cardType: 'credit', type: 'Physical', usageType: 'Multi-use', classification: 'Consumer', validPeriod: '3 Years',
+    creditMin: '1000', creditMax: '10000', purchaseApr: '22.99', billingCycle: 'Monthly – 15th', gracePeriod: '21', cards: 10120, status: 'Active' },
+  { id: 'SUB-007', name: 'SMB Cashback — Standard', programId: 'PRG-003', description: 'Standard cashback card for everyday business purchases.',
+    bin: '484001', network: 'Visa',       cardType: 'credit', type: 'Physical', usageType: 'Multi-use', classification: 'Commercial', validPeriod: '3 Years',
+    creditMin: '1000', creditMax: '15000', purchaseApr: '20.99', billingCycle: 'Monthly – 1st', gracePeriod: '25', cards: 9600,  status: 'Active' },
+  { id: 'SUB-008', name: 'SMB Cashback — Virtual',  programId: 'PRG-003', description: 'Virtual card for vendor payments and online procurement.',
+    bin: '484002', network: 'Visa',       cardType: 'credit', type: 'Virtual',  usageType: 'Single-use', classification: 'Commercial', validPeriod: '1 Year',
+    creditMin: '500',  creditMax: '5000',  purchaseApr: '23.99', billingCycle: 'Monthly – 1st', gracePeriod: '21', cards: 4801,  status: 'Inactive' },
+];
+
+// ── Customers ─────────────────────────────────────────────────
+const customers = [
+  { id: 'C-100001', name: 'Alice Johnson',    email: 'alice.j@email.com',   phone: '(212) 555-0101', state: 'NY', cards: 3, status: 'Active',  created: '01/15/2022' },
+  { id: 'C-100002', name: 'Carlos Rivera',    email: 'crivera@mail.com',    phone: '(713) 555-0182', state: 'TX', cards: 2, status: 'Active',  created: '03/22/2022' },
+  { id: 'C-100003', name: 'Emma Thompson',    email: 'ethompson@web.com',   phone: '(415) 555-0143', state: 'CA', cards: 1, status: 'Active',  created: '06/10/2022' },
+  { id: 'C-100004', name: 'James Wilson',     email: 'jwilson@inbox.com',   phone: '(305) 555-0167', state: 'FL', cards: 4, status: 'Active',  created: '08/05/2022' },
+  { id: 'C-100005', name: 'Cameron Williamson',email: 'cwill@net.com',      phone: '(206) 555-0129', state: 'WA', cards: 2, status: 'Active',  created: '09/18/2022' },
+  { id: 'C-100006', name: 'Sofia Martinez',   email: 'smartinez@post.com',  phone: '(201) 555-0148', state: 'NJ', cards: 3, status: 'Active',  created: '11/02/2022' },
+  { id: 'C-100007', name: 'Ryan Patel',       email: 'rpatel@cloud.com',    phone: '(702) 555-0113', state: 'NV', cards: 1, status: 'Frozen',  created: '01/09/2023' },
+  { id: 'C-100008', name: 'Linda Chen',       email: 'lchen@mail.com',      phone: '(480) 555-0192', state: 'AZ', cards: 2, status: 'Active',  created: '02/14/2023' },
+  { id: 'C-100009', name: 'Michael Brown',    email: 'mbrown@web.io',       phone: '(503) 555-0175', state: 'OR', cards: 1, status: 'Pending', created: '04/01/2023' },
+  { id: 'C-100010', name: 'Priya Nguyen',     email: 'pnguyen@fast.net',    phone: '(208) 555-0138', state: 'ID', cards: 2, status: 'Active',  created: '05/19/2023' },
+  { id: 'C-100011', name: 'Tyler Jackson',    email: 'tjacks@inbox.com',    phone: '(212) 555-0122', state: 'NY', cards: 3, status: 'Active',  created: '06/30/2023' },
+  { id: 'C-100012', name: 'Mia Hernandez',    email: 'mhernandez@web.com',  phone: '(713) 555-0194', state: 'TX', cards: 1, status: 'Closed',  created: '07/11/2023' },
+];
+
+// ── Disputes ──────────────────────────────────────────────────
+const disputeSteps = [
+  'Case Created', 'Customer Filing', 'Network Filing',
+  'Representment', 'Pre-Arbitration', 'Arbitration',
+];
+
+const disputes = [
+  { id: 'D-2001', case: 'CASE-2001', holder: 'Alice Johnson',    card: '**** 4142', network: 'Visa',       merchant: 'Amazon Mktp',    reason: 'Duplicate Charge',        amount: 284.50,  filed: '03/01/2024', status: 'Pending Customer', step: 1 },
+  { id: 'D-2002', case: 'CASE-2002', holder: 'Carlos Rivera',    card: '**** 8211', network: 'Mastercard', merchant: 'Delta Airlines',  reason: 'Service Not Received',    amount: 1240.00, filed: '02/28/2024', status: 'Submitted',        step: 2 },
+  { id: 'D-2003', case: 'CASE-2003', holder: 'Emma Thompson',    card: '**** 6190', network: 'Visa',       merchant: 'Apple Inc.',      reason: 'Unauthorized Transaction', amount: 89.99,   filed: '02/22/2024', status: 'Representment',    step: 3 },
+  { id: 'D-2004', case: 'CASE-2004', holder: 'James Wilson',     card: '**** 3022', network: 'Visa',       merchant: 'Walmart Supercenter', reason: 'Item Not Received',    amount: 512.40,  filed: '02/15/2024', status: 'Case Won',         step: 5 },
+  { id: 'D-2005', case: 'CASE-2005', holder: 'Sofia Martinez',   card: '**** 7711', network: 'Mastercard', merchant: 'Best Buy',        reason: 'Defective Merchandise',   amount: 3200.00, filed: '01/30/2024', status: 'Prearbitration',   step: 4 },
+  { id: 'D-2006', case: 'CASE-2006', holder: 'Ryan Patel',       card: '**** 0048', network: 'Visa',       merchant: 'Airbnb',         reason: 'Service Not Received',    amount: 720.00,  filed: '01/25/2024', status: 'Arbitration',      step: 5 },
+  { id: 'D-2007', case: 'CASE-2007', holder: 'Linda Chen',       card: '**** 1955', network: 'Mastercard', merchant: 'Target',         reason: 'Unauthorized Transaction', amount: 148.50,  filed: '01/18/2024', status: 'Case Closed',      step: 5 },
+  { id: 'D-2008', case: 'CASE-2008', holder: 'Michael Brown',    card: '**** 6624', network: 'Visa',       merchant: 'Shell Oil',       reason: 'Duplicate Charge',        amount: 52.80,   filed: '03/10/2024', status: 'Submitted',        step: 2 },
+];
+
+// ── Fraud Alerts ─────────────────────────────────────────────
+const fraud = [
+  { id: 'FA-0841', name: 'Alice Johnson',    card: '**** 4142', merchant: 'Crypto Exchange XYZ', amount: 4850.00, score: 0.94, reason: 'High-risk MCC + unusual hour',      status: 'Open' },
+  { id: 'FA-0842', name: 'Ryan Patel',       card: '**** 0048', merchant: 'Unnamed ATM, Lagos',  amount: 2200.00, score: 0.89, reason: 'Card-not-present, foreign ATM',     status: 'Open' },
+  { id: 'FA-0843', name: 'Carlos Rivera',    card: '**** 8211', merchant: 'Online Casino Pro',   amount: 980.00,  score: 0.78, reason: 'Gambling MCC, first-time merchant', status: 'Open' },
+  { id: 'FA-0844', name: 'Emma Thompson',    card: '**** 6190', merchant: 'Amazon Mktp',         amount: 284.00,  score: 0.42, reason: 'Velocity: 5 txns in 10 min',        status: 'Confirmed' },
+  { id: 'FA-0845', name: 'Tyler Jackson',    card: '**** 3320', merchant: 'Steam Gaming',        amount: 59.99,   score: 0.31, reason: 'New device + new merchant',          status: 'Dismissed' },
+  { id: 'FA-0846', name: 'Priya Nguyen',     card: '**** 6624', merchant: 'Suspicious.io',       amount: 12500.00,score: 0.97, reason: 'Amount anomaly + night-time +2σ',   status: 'Open' },
+];
+
+// ── Autopay ───────────────────────────────────────────────────
+const autopay = {
+  policy: {
+    modes: [
+      { id: 'full',     label: 'Full Statement Balance', note: 'Pays the entire statement balance — no interest accrued.',            enabled: true,  locked: false },
+      { id: 'min',      label: 'Minimum Payment Due',    note: 'Pays the regulatory minimum — interest accrues on the remainder.',   enabled: true,  locked: true  },
+      { id: 'fixed',    label: 'Fixed Dollar Amount',    note: 'Cardholder chooses a recurring fixed payment (subject to minimum).', enabled: true,  locked: false },
+      { id: 'current',  label: 'Statement Balance',      note: 'Pays the current balance at time of execution.',                     enabled: false, locked: false },
+    ],
+    timing: 'due',
+    offsetDays: 3,
+    cutoff: '14:00 ET',
+    timezone: 'Eastern (ET)',
+    nonBusinessDay: 'Move to previous business day',
+    reminder: true,
+    reminderDays: 3,
+    channels: { email: true, sms: true, push: false },
+  },
+  enrollment: {
+    totalEnrolled: 6241,
+    totalAccounts: 8421,
+    modeDist: [
+      { mode: 'Full Statement Balance', count: 3118, pct: 50, color: 'var(--fta-primary-6)' },
+      { mode: 'Minimum Payment Due',    count: 1872, pct: 30, color: 'var(--fta-secondary-5)' },
+      { mode: 'Fixed Dollar Amount',    count: 1251, pct: 20, color: 'var(--fta-chart-3)' },
+    ],
+    fundingHealth: [
+      { label: 'Verified',   count: 5620, pct: 90 },
+      { label: 'Unverified', count: 498,  pct: 8 },
+      { label: 'Expired',    count: 123,  pct: 2 },
+    ],
+    accounts: [
+      { acct: 'C-100001', name: 'Alice Johnson',    mode: 'Full Statement Balance', fixed: '—',        funding: '****1234', verify: 'Verified',   next: '06/15/2026', projected: 1284.50, last: 'Posted',    days: 412 },
+      { acct: 'C-100002', name: 'Carlos Rivera',    mode: 'Minimum Payment Due',    fixed: '—',        funding: '****5678', verify: 'Verified',   next: '06/15/2026', projected: 35.00,   last: 'Posted',    days: 305 },
+      { acct: 'C-100003', name: 'Emma Thompson',    mode: 'Fixed Dollar Amount',    fixed: '$ 250.00', funding: '****9012', verify: 'Unverified', next: '06/15/2026', projected: 250.00,  last: 'Failed',    days: 188 },
+      { acct: 'C-100004', name: 'James Wilson',     mode: 'Full Statement Balance', fixed: '—',        funding: '****3456', verify: 'Verified',   next: '06/15/2026', projected: 3840.20, last: 'Posted',    days: 521 },
+      { acct: 'C-100006', name: 'Sofia Martinez',   mode: 'Full Statement Balance', fixed: '—',        funding: '****7890', verify: 'Expired',    next: '06/15/2026', projected: 960.80,  last: 'Failed',    days: 90  },
+      { acct: 'C-100008', name: 'Linda Chen',       mode: 'Fixed Dollar Amount',    fixed: '$ 500.00', funding: '****2345', verify: 'Verified',   next: '06/15/2026', projected: 500.00,  last: 'Posted',    days: 244 },
+    ],
+  },
+  monitoring: {
+    today: { scheduled: 1842, processing: 234, posted: 1493, failed: 115 },
+    runs: [
+      { name: 'Alice Johnson',    acct: 'C-100001', amount: 1284.50, funding: '****1234', sched: '06/01 06:00', done: '06/01 06:14', status: 'Posted',     reason: null },
+      { name: 'Carlos Rivera',    acct: 'C-100002', amount: 35.00,   funding: '****5678', sched: '06/01 06:00', done: '06/01 06:14', status: 'Posted',     reason: null },
+      { name: 'Emma Thompson',    acct: 'C-100003', amount: 250.00,  funding: '****9012', sched: '06/01 06:00', done: '06/01 06:18', status: 'Failed',     reason: 'R01 Insufficient Funds' },
+      { name: 'James Wilson',     acct: 'C-100004', amount: 3840.20, funding: '****3456', sched: '06/01 06:00', done: '—',           status: 'Processing', reason: null },
+      { name: 'Sofia Martinez',   acct: 'C-100006', amount: 960.80,  funding: '****7890', sched: '06/01 06:00', done: '06/01 06:22', status: 'Failed',     reason: 'R03 No Account / Unable to Locate' },
+      { name: 'Linda Chen',       acct: 'C-100008', amount: 500.00,  funding: '****2345', sched: '06/01 06:00', done: '—',           status: 'Scheduled',  reason: null },
+    ],
+    failBreakdown: [
+      { reason: 'Insufficient Funds',      code: 'R01', count: 68 },
+      { reason: 'No Account / Unable to Locate', code: 'R03', count: 24 },
+      { reason: 'Payment Stopped',         code: 'R08', count: 12 },
+      { reason: 'Account Closed',          code: 'R02', count: 11 },
+    ],
+    alerts: [
+      { kind: 'danger',  title: 'High failure rate',       body: 'Failure rate is 6.2% today — above 5% threshold. Review R01 errors.' },
+      { kind: 'warning', title: 'Funding sources expiring', body: '38 linked accounts have funding sources expiring within 30 days.' },
+      { kind: 'info',    title: 'Cycle close tomorrow',    body: 'May 2026 billing cycle closes 06/02. New autopay runs scheduled for 06/05.' },
+    ],
+  },
+};
+
+// ── Spend Controls ────────────────────────────────────────────
+const spend = {
+  rules: [
+    { id: 'SCR-0001', name: 'OFAC Sanctioned Countries',    scope: 'Program',  type: 'Geo',          detail: 'Deny: Iran, Cuba, North Korea, Russia, Syria',     impact: 84210, effective: '01/01/2024', status: 'Active',  compliance: true },
+    { id: 'SCR-0002', name: 'High-Risk MCC Deny List',      scope: 'Program',  type: 'MCC',          detail: 'Deny: Gambling (7995), Crypto (6051), Adult (7273)', impact: 84210, effective: '01/01/2024', status: 'Active',  compliance: false },
+    { id: 'SCR-0003', name: 'Monthly Spend Ceiling',        scope: 'Program',  type: 'Limit',        detail: 'Max $25,000 per account per month',                 impact: 84210, effective: '01/01/2024', status: 'Active',  compliance: false },
+    { id: 'SCR-0004', name: 'Daily Transaction Velocity',   scope: 'Program',  type: 'Velocity',     detail: 'Max 20 transactions per card per day',              impact: 84210, effective: '03/01/2024', status: 'Active',  compliance: false },
+    { id: 'SCR-0005', name: 'ATM Cash Advance Limit',       scope: 'Program',  type: 'Cash Advance', detail: 'Max $500 per day · Max $2,000 per month',           impact: 84210, effective: '01/01/2024', status: 'Active',  compliance: false },
+    { id: 'SCR-0006', name: 'Cameron Williamson — Dining',  scope: 'Account',  type: 'Limit',        detail: 'Max $500 per month on Dining MCC group',            impact: 6,     effective: '02/14/2024', status: 'Active',  compliance: false },
+    { id: 'SCR-0007', name: 'Platinum Card Intl Travel',    scope: 'Card',     type: 'Geo',          detail: 'Allow: US, CA, MX, EU, JP, AU, SG',                 impact: 1,     effective: '03/05/2024', status: 'Active',  compliance: false },
+    { id: 'SCR-0008', name: 'New Virtual Card Velocity',    scope: 'Card',     type: 'Velocity',     detail: 'Max 5 txns / hour for first 24h after issuance',    impact: 1,     effective: '03/10/2024', status: 'Draft',   compliance: false },
+  ],
+  mccGroups: [
+    { name: 'High-Risk Merchants',  count: 12, risk: 'high', codes: '7995, 6051, 7273, 9999, 6010, 5912, 7801, 7802, 5933, 5999, 6012, 6050' },
+    { name: 'Travel & Airlines',    count: 8,  risk: 'low',  codes: '4511, 4112, 7011, 7012, 4722, 4723, 3000–3299, 4131' },
+    { name: 'Dining & Restaurants', count: 4,  risk: 'low',  codes: '5812, 5813, 5814, 5900' },
+    { name: 'Fuel & Auto',          count: 5,  risk: 'low',  codes: '5541, 5542, 5511, 7531, 7534' },
+    { name: 'Groceries',            count: 3,  risk: 'low',  codes: '5411, 5422, 5912' },
+    { name: 'Government & Utility', count: 6,  risk: 'low',  codes: '9311, 9399, 4900, 4911, 4931, 4941' },
+  ],
+};
+
+// ── Billing / Statements ──────────────────────────────────────
+const billing = {
+  summary: {
+    outstanding:       '$ 12,847,312.55',
+    billedThisCycle:   '$ 4,214,180.22',
+    paymentsReceived:  '$ 3,890,441.00',
+    failedRate:        '2.8%',
+    lateRate:          '4.1%',
+    feeRevenue: [
+      { type: 'Annual Fee',         cycle: 42140.00,  ytd: 248820.00 },
+      { type: 'Late Payment Fee',   cycle: 18420.00,  ytd: 102360.00 },
+      { type: 'Foreign Transaction',cycle: 12880.50,  ytd: 74120.30 },
+      { type: 'Cash Advance Fee',   cycle: 9640.20,   ytd: 58420.80 },
+      { type: 'Balance Transfer',   cycle: 5210.00,   ytd: 30840.00 },
+    ],
+    interestRevCycle: '$ 184,200.00',
+    interestRevYtd:   '$ 1,042,150.00',
+    aging: [
+      { bucket: '1–30 days past due',   count: 284, amount: 218400.00,  tone: 'info' },
+      { bucket: '31–60 days past due',  count: 148, amount: 168200.00,  tone: 'warning' },
+      { bucket: '61–90 days past due',  count: 112, amount: 112400.00,  tone: 'warning' },
+      { bucket: '90+ days past due',    count: 72,  amount: 77500.00,   tone: 'danger' },
+    ],
+  },
+  statements: [
+    { id: 'STMT-8001', name: 'Alice Johnson',   acct: 'C-100001', cycle: 'May 2026', close: '05/31/2026', due: '06/21/2026', balance: 1284.50,  minDue: 35.00,  status: 'Published',  flag: null },
+    { id: 'STMT-8002', name: 'Carlos Rivera',   acct: 'C-100002', cycle: 'May 2026', close: '05/31/2026', due: '06/21/2026', balance: 2840.20,  minDue: 62.00,  status: 'Published',  flag: null },
+    { id: 'STMT-8003', name: 'Emma Thompson',   acct: 'C-100003', cycle: 'May 2026', close: '05/31/2026', due: '06/21/2026', balance: 512.40,   minDue: 25.00,  status: 'Held',       flag: 'Interest calculation discrepancy — review before publishing' },
+    { id: 'STMT-8004', name: 'James Wilson',    acct: 'C-100004', cycle: 'May 2026', close: '05/31/2026', due: '06/21/2026', balance: 18420.80, minDue: 312.00, status: 'Published',  flag: null },
+    { id: 'STMT-8005', name: 'Sofia Martinez',  acct: 'C-100006', cycle: 'May 2026', close: '05/31/2026', due: '06/21/2026', balance: 960.80,   minDue: 28.00,  status: 'Held',       flag: 'Pending dispute adjustment for CASE-2005' },
+    { id: 'STMT-8006', name: 'Linda Chen',      acct: 'C-100008', cycle: 'May 2026', close: '05/31/2026', due: '06/21/2026', balance: 2140.60,  minDue: 48.00,  status: 'Generated',  flag: null },
+    { id: 'STMT-8007', name: 'Tyler Jackson',   acct: 'C-100011', cycle: 'May 2026', close: '05/31/2026', due: '06/21/2026', balance: 384.20,   minDue: 25.00,  status: 'Published',  flag: null },
+    { id: 'STMT-8008', name: 'Priya Nguyen',    acct: 'C-100010', cycle: 'May 2026', close: '05/31/2026', due: '06/21/2026', balance: 7840.00,  minDue: 148.00, status: 'Regenerated',flag: null },
+  ],
+  payments: [
+    { id: 'PMT-5001', name: 'Alice Johnson',    acct: 'C-100001', source: 'Autopay', amount: 1284.50, funding: '****1234', applied: 'Full balance',   date: '06/01/2026', status: 'Posted',     fail: null },
+    { id: 'PMT-5002', name: 'Carlos Rivera',    acct: 'C-100002', source: 'Manual',  amount: 500.00,  funding: '****5678', applied: 'Partial',        date: '05/28/2026', status: 'Posted',     fail: null },
+    { id: 'PMT-5003', name: 'Emma Thompson',    acct: 'C-100003', source: 'Autopay', amount: 250.00,  funding: '****9012', applied: '—',              date: '06/01/2026', status: 'Failed',     fail: 'R01 Insufficient Funds' },
+    { id: 'PMT-5004', name: 'James Wilson',     acct: 'C-100004', source: 'Autopay', amount: 3840.20, funding: '****3456', applied: 'Full balance',   date: '06/01/2026', status: 'Processing', fail: null },
+    { id: 'PMT-5005', name: 'Sofia Martinez',   acct: 'C-100006', source: 'Autopay', amount: 960.80,  funding: '****7890', applied: '—',              date: '06/01/2026', status: 'Failed',     fail: 'R03 No Account' },
+    { id: 'PMT-5006', name: 'Priya Nguyen',     acct: 'C-100010', source: 'Manual',  amount: 200.00,  funding: '****2222', applied: 'Minimum due',    date: '05/30/2026', status: 'Posted',     fail: null },
+    { id: 'PMT-5007', name: 'Tyler Jackson',    acct: 'C-100011', source: 'Autopay', amount: 384.20,  funding: '****4444', applied: 'Full balance',   date: '06/01/2026', status: 'Scheduled',  fail: null },
+  ],
+  sampleStatement: {
+    id: 'STMT-8001',
+    name: 'Alice Johnson',
+    acct: 'C-100001',
+    cycle: 'May 2026',
+    close: '05/31/2026',
+    due: '06/21/2026',
+    daysInCycle: 31,
+    openingBalance: 840.20,
+    payments: 840.20,
+    purchases: 1284.50,
+    interest: 0.00,
+    statementBalance: 1284.50,
+    minDue: 35.00,
+    apr: { purchase: '24.99% APR', cashAdvance: '29.99% APR', type: 'Variable (Prime + 15.49%)' },
+    rewards: { earned: 1284, balance: 8420 },
+    minWarning: { years: 3, months: 8, totalInterest: 612.40, threeYearPmt: 47.30 },
+    transactions: [
+      { date: '05/03', merchant: 'Whole Foods Market',    cat: 'Groceries',    amount: 84.32 },
+      { date: '05/07', merchant: 'Amazon Mktp US',        cat: 'Online Retail',amount: 284.18 },
+      { date: '05/11', merchant: 'Delta Airlines',        cat: 'Travel',       amount: 384.00 },
+      { date: '05/14', merchant: 'Starbucks',             cat: 'Dining',       amount: 6.85 },
+      { date: '05/18', merchant: 'Shell Oil',             cat: 'Fuel',         amount: 47.95 },
+      { date: '05/21', merchant: 'Spotify',               cat: 'Subscriptions',amount: 9.99 },
+      { date: '05/25', merchant: 'Target',                cat: 'Retail',       amount: 142.65 },
+      { date: '05/28', merchant: 'Lyft',                  cat: 'Transit',      amount: 11.20 },
+      { date: '05/30', merchant: 'CVS Pharmacy',          cat: 'Health',       amount: 38.21 },
+      { date: '05/31', merchant: 'Best Buy',              cat: 'Electronics',  amount: 275.15 },
+    ],
+    interestLines: [
+      { sub: 'Purchases',    adb: 982.40,  apr: '24.99%', charge: 0.00 },
+      { sub: 'Cash Advances',adb: 0.00,    apr: '29.99%', charge: 0.00 },
+    ],
+  },
+};
+
+const approvedLegalTermsPackages = [
+  {
+    id: 'LTP-001',
+    name: 'US Credit Card Standard Terms',
+    version: 'v2.1',
+    issuer: 'National Bank',
+    market: 'United States',
+    network: 'Visa / Mastercard',
+    productType: 'Credit Card',
+    effectiveDate: '2024-01-01',
+    approvedBy: 'Jane Chen, Chief Compliance Officer',
+    lastUpdated: '2023-12-15',
+    documents: {
+      termsAndConditionsUrl:  'https://docs.example.com/us-standard-tos-v2.1.pdf',
+      privacyPolicyUrl:       'https://docs.example.com/us-privacy-v2.1.pdf',
+      cardholderAgreementUrl: 'https://docs.example.com/us-cardholder-v2.1.pdf',
+    },
+  },
+  {
+    id: 'LTP-002',
+    name: 'US Premium Rewards Card Terms',
+    version: 'v1.4',
+    issuer: 'National Bank',
+    market: 'United States',
+    network: 'Visa',
+    productType: 'Premium Rewards Credit Card',
+    effectiveDate: '2024-03-01',
+    approvedBy: 'Marcus Lee, VP Legal Affairs',
+    lastUpdated: '2024-02-10',
+    documents: {
+      termsAndConditionsUrl:  'https://docs.example.com/us-premium-tos-v1.4.pdf',
+      privacyPolicyUrl:       'https://docs.example.com/us-privacy-v2.1.pdf',
+      cardholderAgreementUrl: 'https://docs.example.com/us-premium-cardholder-v1.4.pdf',
+    },
+  },
+  {
+    id: 'LTP-003',
+    name: 'Canada Credit Cardholder Agreement',
+    version: 'v3.0',
+    issuer: 'National Bank Canada',
+    market: 'Canada',
+    network: 'Mastercard',
+    productType: 'Credit Card',
+    effectiveDate: '2024-06-01',
+    approvedBy: 'Sophie Tremblay, Chief Legal Officer',
+    lastUpdated: '2024-05-20',
+    documents: {
+      termsAndConditionsUrl:  'https://docs.example.com/ca-standard-tos-v3.0.pdf',
+      privacyPolicyUrl:       'https://docs.example.com/ca-privacy-v3.0.pdf',
+      cardholderAgreementUrl: 'https://docs.example.com/ca-cardholder-v3.0.pdf',
+    },
+  },
+];
+
+const cards = [];
+
+const AppData = {
+  kpis,
+  monthly,
+  weekly,
+  categories,
+  recentDisputes,
+  programs,
+  subPrograms,
+  customers,
+  disputes,
+  disputeSteps,
+  fraud,
+  autopay,
+  spend,
+  billing,
+  approvedLegalTermsPackages,
+  cards,
+};
+
+export default AppData;
