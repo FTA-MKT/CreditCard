@@ -24,8 +24,8 @@ export default function CreateSubProgramView({ navigate, programId }) {
   const [desc, setDesc] = useState('');
 
   // Step 2 – accordion open states
-  const [openAcc, setOpenAcc] = useState({ card: true, service: false, style: false, legal: false });
-  const [accDone, setAccDone] = useState({ card: false, service: false, style: false, legal: false });
+  const [openAcc, setOpenAcc] = useState({ card: true, reward: false, service: false, style: false, legal: false });
+  const [accDone, setAccDone] = useState({ card: false, reward: false, service: false, style: false, legal: false });
 
   // Card Information
   const [cardType, setCardType] = useState('credit');
@@ -58,6 +58,23 @@ export default function CreateSubProgramView({ navigate, programId }) {
 
   // Approved Legal Terms
   const [legalPkgId, setLegalPkgId] = useState('');
+
+  // Rewards Program
+  const [rewardEnabled, setRewardEnabled] = useState(false);
+  const [rewardName, setRewardName] = useState('');
+  const [rewardType, setRewardType] = useState('');
+  const [rewardDescription, setRewardDescription] = useState('');
+  const [earnRate, setEarnRate] = useState('');
+  const [spendRule, setSpendRule] = useState('');
+  const [spendMin, setSpendMin] = useState('');
+  const [spendMax, setSpendMax] = useState('');
+  const [mccTags, setMccTags] = useState([]);
+  const [mccInput, setMccInput] = useState('');
+  const [rewardPeriod, setRewardPeriod] = useState('');
+  const [eventRule, setEventRule] = useState('');
+  const [redemptionOptions, setRedemptionOptions] = useState([]);
+  const [pointsExpiry, setPointsExpiry] = useState('');
+  const [redemptionThreshold, setRedemptionThreshold] = useState('');
   const selectedLegalPkg = legalPkgId ? AppData.approvedLegalTermsPackages.find(p => p.id === legalPkgId) : null;
   const unitPrice = cardMaterial ? (CARD_MATERIAL_PRICES[cardMaterial] ?? null) : null;
   const cardQtyNum = parseInt(cardQuantity, 10);
@@ -229,6 +246,21 @@ export default function CreateSubProgramView({ navigate, programId }) {
       cardTotalPrice: tPrice,
       legalTermsPackageId: legalPkgId,
       legalTermsSnapshot: selectedLegalPkg ? { ...selectedLegalPkg } : null,
+      rewardsProgram: rewardEnabled ? {
+        name: rewardName.trim(),
+        type: rewardType,
+        description: rewardDescription.trim(),
+        earnRate: earnRate.trim(),
+        spendRule,
+        spendMin: spendMin ? Number(spendMin) : null,
+        spendMax: spendMax ? Number(spendMax) : null,
+        mccRules: mccTags,
+        period: rewardPeriod,
+        eventRule,
+        redemptionOptions,
+        pointsExpiry,
+        redemptionThreshold: redemptionThreshold.trim(),
+      } : null,
       limitMin,
       limitMax,
       limitDefault,
@@ -453,6 +485,166 @@ export default function CreateSubProgramView({ navigate, programId }) {
                   </FormField>
                 </div>
                 <button className="btn btn-primary btn-sm" onClick={() => saveAcc('card')}>Save</button>
+              </Accordion>
+
+              {/* Rewards Program accordion */}
+              <Accordion
+                title="Rewards Program"
+                sub="Configure reward policies for this sub-program, including earn rates, spend rules, and redemption settings."
+                open={openAcc.reward} done={accDone.reward}
+                onToggle={() => toggleAcc('reward')}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20, padding: '12px 14px', background: 'var(--fta-fill-2)', borderRadius: 8 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={rewardEnabled} onChange={e => setRewardEnabled(e.target.checked)} style={{ accentColor: 'var(--fta-primary-6)', width: 15, height: 15 }} />
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>Enable Rewards Program for this Sub-Program</span>
+                  </label>
+                </div>
+
+                {rewardEnabled && (
+                  <>
+                    <div style={{ display: 'flex', gap: 18, marginBottom: 18 }}>
+                      <FormField label="Reward Name" required>
+                        <div className="input"><input type="text" placeholder="e.g. Cashback Rewards" value={rewardName} onChange={e => setRewardName(e.target.value)} /></div>
+                      </FormField>
+                      <FormField label="Reward Type" required>
+                        <div className="select"><select value={rewardType} onChange={e => setRewardType(e.target.value)}>
+                          <option value="">Please Select</option>
+                          <option>Cashback</option>
+                          <option>Points</option>
+                          <option>Miles</option>
+                          <option>Tiered Points</option>
+                        </select></div>
+                      </FormField>
+                    </div>
+                    <FormField label="Reward Description" style={{ marginBottom: 18 }}>
+                      <div className="input" style={{ padding: 0 }}>
+                        <textarea
+                          placeholder="Brief description of the reward program..."
+                          rows={2}
+                          value={rewardDescription}
+                          onChange={e => setRewardDescription(e.target.value)}
+                          style={{ width: '100%', resize: 'vertical', minHeight: 56, fontFamily: 'inherit', fontSize: 13, padding: '8px 10px', border: 'none', background: 'transparent', outline: 'none', boxSizing: 'border-box' }}
+                        />
+                      </div>
+                    </FormField>
+
+                    <hr style={{ border: 'none', borderTop: '1px solid var(--fta-line-3)', margin: '4px 0 18px' }} />
+                    <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 14 }}>Earn Rules</div>
+
+                    <div style={{ display: 'flex', gap: 18, marginBottom: 18 }}>
+                      <FormField label="Earn Rate" required>
+                        <div className="input"><input type="text" placeholder="e.g. 1.5% or 2x points" value={earnRate} onChange={e => setEarnRate(e.target.value)} /></div>
+                      </FormField>
+                      <FormField label="Spend Rule" required>
+                        <div className="select"><select value={spendRule} onChange={e => setSpendRule(e.target.value)}>
+                          <option value="">Please Select</option>
+                          <option>All Spend</option>
+                          <option>Greater than</option>
+                          <option>Less than</option>
+                          <option>Between</option>
+                        </select></div>
+                      </FormField>
+                    </div>
+
+                    {(spendRule === 'Greater than' || spendRule === 'Less than' || spendRule === 'Between') && (
+                      <div style={{ display: 'flex', gap: 18, marginBottom: 18 }}>
+                        <FormField label={spendRule === 'Less than' ? 'Maximum Amount (USD)' : 'Minimum Amount (USD)'}>
+                          <div className="input"><input type="number" placeholder="e.g. 10" min="0" value={spendMin} onChange={e => setSpendMin(e.target.value)} /></div>
+                        </FormField>
+                        {spendRule === 'Between' && (
+                          <FormField label="Maximum Amount (USD)">
+                            <div className="input"><input type="number" placeholder="e.g. 1000" min="0" value={spendMax} onChange={e => setSpendMax(e.target.value)} /></div>
+                          </FormField>
+                        )}
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', gap: 18, marginBottom: 18 }}>
+                      <FormField label="Reward Period" required>
+                        <div className="select"><select value={rewardPeriod} onChange={e => setRewardPeriod(e.target.value)}>
+                          <option value="">Please Select</option>
+                          <option>Per Transaction</option>
+                          <option>Per Billing Cycle</option>
+                          <option>Calendar Year</option>
+                        </select></div>
+                      </FormField>
+                      <FormField label="Event Rule" required>
+                        <div className="select"><select value={eventRule} onChange={e => setEventRule(e.target.value)}>
+                          <option value="">Please Select</option>
+                          <option>Transaction Settlement</option>
+                          <option>Billing Cycle</option>
+                          <option>Statement</option>
+                        </select></div>
+                      </FormField>
+                    </div>
+
+                    <FormField label="MCC Rules" style={{ marginBottom: 18 }}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', padding: '6px 10px', border: '1px solid var(--fta-line-2)', borderRadius: 6, background: 'var(--fta-fill-1)', minHeight: 38 }}>
+                        {mccTags.map(tag => (
+                          <span key={tag} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'var(--fta-primary-1)', color: 'var(--fta-primary-7)', borderRadius: 4, padding: '2px 8px', fontSize: 12 }}>
+                            {tag}
+                            <button onClick={() => setMccTags(prev => prev.filter(t => t !== tag))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: 0, lineHeight: 1, fontSize: 14 }}>×</button>
+                          </span>
+                        ))}
+                        <input
+                          type="text"
+                          placeholder={mccTags.length === 0 ? 'Type MCC code and press Enter…' : ''}
+                          value={mccInput}
+                          onChange={e => setMccInput(e.target.value)}
+                          onKeyDown={e => {
+                            if ((e.key === 'Enter' || e.key === ',') && mccInput.trim()) {
+                              e.preventDefault();
+                              const val = mccInput.trim().replace(/,/g, '');
+                              if (val && !mccTags.includes(val)) setMccTags(prev => [...prev, val]);
+                              setMccInput('');
+                            } else if (e.key === 'Backspace' && !mccInput && mccTags.length) {
+                              setMccTags(prev => prev.slice(0, -1));
+                            }
+                          }}
+                          style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: 13, minWidth: 120, flex: 1 }}
+                        />
+                      </div>
+                      <div style={{ fontSize: 11.5, color: 'var(--fta-text-4)', marginTop: 4 }}>Enter MCC codes (e.g. 5411) and press Enter to add. Leave empty to apply to all categories.</div>
+                    </FormField>
+
+                    <hr style={{ border: 'none', borderTop: '1px solid var(--fta-line-3)', margin: '4px 0 18px' }} />
+                    <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 14 }}>Redemption Settings</div>
+
+                    <FormField label="Redemption Options" style={{ marginBottom: 18 }}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, padding: '6px 0' }}>
+                        {['Statement Credit', 'Bank Transfer', 'Gift Cards', 'Travel Booking', 'Merchandise'].map(opt => (
+                          <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', fontSize: 13 }}>
+                            <input
+                              type="checkbox"
+                              checked={redemptionOptions.includes(opt)}
+                              onChange={e => setRedemptionOptions(prev => e.target.checked ? [...prev, opt] : prev.filter(o => o !== opt))}
+                              style={{ accentColor: 'var(--fta-primary-6)', width: 14, height: 14 }}
+                            />
+                            {opt}
+                          </label>
+                        ))}
+                      </div>
+                    </FormField>
+
+                    <div style={{ display: 'flex', gap: 18, marginBottom: 14 }}>
+                      <FormField label="Points Expiry">
+                        <div className="select"><select value={pointsExpiry} onChange={e => setPointsExpiry(e.target.value)}>
+                          <option value="">No Expiry</option>
+                          <option>12 Months</option>
+                          <option>24 Months</option>
+                          <option>36 Months</option>
+                          <option>End of Calendar Year</option>
+                        </select></div>
+                      </FormField>
+                      <FormField label="Redemption Threshold">
+                        <div className="input"><input type="text" placeholder="e.g. 500 points or $5" value={redemptionThreshold} onChange={e => setRedemptionThreshold(e.target.value)} /></div>
+                      </FormField>
+                    </div>
+                  </>
+                )}
+
+                <button className="btn btn-primary btn-sm" onClick={() => saveAcc('reward')}>Save</button>
               </Accordion>
 
               {/* Customer Service accordion */}
