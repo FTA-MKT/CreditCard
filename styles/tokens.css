@@ -76,7 +76,8 @@
   --fta-chart-10: #5872C1;
 
   /* ── Semantic aliases (shadcn-compatible) ─────────────────────────────── */
-  --background:            var(--fta-bg-1);
+  --background:            var(--fta-bg-1);  /* #FFFFFF — page / content surface */
+  --sidebar-background:    var(--fta-fill-2); /* #F7F8FA — left nav background   */
   --canvas:                var(--fta-bg-2);
   --foreground:            var(--fta-text-5);
   --primary:               var(--fta-primary-6);
@@ -120,6 +121,11 @@
   --radius-xl:   var(--r-lg);
   --radius-2xl:  var(--r-lg);
   --radius-card: var(--r-xl);
+
+  /* ── Surface tokens (used by Components/ui card, table) ──────────────── */
+  --surface-border-width: 1px;
+  --surface-border-color: var(--border);
+  --surface-shadow:       none;
 
   /* ── Shadow system ─────────────────────────────────────────────────────── */
   /* xs — inset UI elements / inputs */

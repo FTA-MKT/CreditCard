@@ -12,6 +12,7 @@ import StatementsView from './views/StatementsView';
 import CreateProgramView from './views/CreateProgramView';
 import CreateSubProgramView from './views/CreateSubProgramView';
 import CreateCardView from './views/CreateCardView';
+import IssueCardView from './views/IssueCardView';
 
 const TWEAK_DEFAULTS = {
   accent: '#1634A4',
@@ -56,6 +57,7 @@ export default function App() {
       case 'nested':
       case 'subprogram-detail':               return <NestedProgramView navigate={navigate} navParam={param} />;
       case 'create-card':                     return <CreateCardView navigate={navigate} navParam={param} />;
+      case 'issue-card':                      return <IssueCardView navigate={navigate} navParam={param} />;
       case 'cards':                           return <CardsView navigate={navigate} />;
       case 'customers':
       case 'customer-detail':                 return <CustomersView navigate={navigate} navParam={param} />;

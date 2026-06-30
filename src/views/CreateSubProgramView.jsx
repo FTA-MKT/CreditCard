@@ -36,11 +36,10 @@ export default function CreateSubProgramView({ navigate, programId }) {
   const [usageType, setUsageType] = useState('');
   const [classification, setClassification] = useState('Consumer');
   const [validPeriod, setValidPeriod] = useState('');
-  const [creditMin, setCreditMin] = useState('');
-  const [creditMax, setCreditMax] = useState('');
-  const [purchaseApr, setPurchaseApr] = useState('');
-  const [billingCycle, setBillingCycle] = useState('');
-  const [gracePeriod, setGracePeriod] = useState('');
+  const [financialAccountId, setFinancialAccountId] = useState('');
+  const selectedFinancialAccount = financialAccountId
+    ? AppData.financialAccounts.find(a => a.id === financialAccountId) ?? null
+    : null;
 
   // Customer Service
   const [svcName, setSvcName] = useState('');
@@ -112,6 +111,40 @@ export default function CreateSubProgramView({ navigate, programId }) {
     setOpenAcc(prev => ({ ...prev, [key]: false }));
   }
 
+  function fillDemoData() {
+    if (!programObj) setProgram(AppData.programs[0]?.id || '');
+    setSubName(`Test Subprogram ${Date.now()}`);
+    setPhysicalEnabled(true);
+    setBinPrefix('441299');
+    setNetwork('Visa');
+    setUsageType('Multi-use');
+    setValidPeriod('3 Years');
+    setFinancialAccountId(AppData.financialAccounts[0]?.id || '');
+    setSvcName('Demo Card Service');
+    setSvcPhone('+1 (555) 000-9999');
+    setSvcEmail('support@demo.com');
+    setCardFrontArtwork({ fileName: 'demo-card-front.png', fileType: 'image/png', width: 1012, height: 638, previewUrl: '', isDemo: true });
+    setCardBackArtwork({ fileName: 'demo-card-back.png', fileType: 'image/png', width: 1012, height: 638, previewUrl: '', isDemo: true });
+    setCardFrontError('');
+    setCardBackError('');
+    setCardMaterial('Standard PVC');
+    setCardQuantity('5000');
+    setLegalPkgId(AppData.approvedLegalTermsPackages[0]?.id || '');
+    setRewardEnabled(true);
+    setRewardName('Demo Cashback Rewards');
+    setRewardType('Cashback');
+    setRewardDescription('Demo rewards program for testing sub-program creation.');
+    setEarnRate('1.5% cashback');
+    setSpendRule('All Spend');
+    setRewardPeriod('Per Billing Cycle');
+    setEventRule('Transaction Settlement');
+    setMccTags([]);
+    setRedemptionOptions(['Statement Credit']);
+    setPointsExpiry('');
+    setRedemptionThreshold('$25');
+    setOpenAcc({ card: true, reward: true, service: true, style: true, legal: true });
+  }
+
   function setLimit(key, field, value) {
     setLimits(prev => ({ ...prev, [key]: { ...prev[key], [field]: value } }));
   }
@@ -166,25 +199,25 @@ export default function CreateSubProgramView({ navigate, programId }) {
     if (!usageType) { setSubmitError('Select a usage type.'); return; }
     if (!validPeriod) { setSubmitError('Select a valid period.'); return; }
 
-    const minNum = Number(creditMin);
-    const maxNum = Number(creditMax);
-    if (!creditMin || isNaN(minNum) || minNum < 0 || !Number.isInteger(minNum)) {
-      setSubmitError('Credit Limit (Min) must be a non-negative whole number.'); return;
-    }
-    if (!creditMax || isNaN(maxNum) || maxNum < 0 || !Number.isInteger(maxNum)) {
-      setSubmitError('Credit Limit (Max) must be a non-negative whole number.'); return;
-    }
-    if (maxNum <= minNum) { setSubmitError('Credit Limit (Max) must be greater than Credit Limit (Min).'); return; }
+    if (!financialAccountId) { setSubmitError('Select a financial account.'); return; }
 
-    const aprNum = parseFloat(purchaseApr);
-    if (!purchaseApr || isNaN(aprNum) || aprNum < 0.01 || aprNum > 99.99) {
-      setSubmitError('Purchase APR must be between 0.01% and 99.99%.'); return;
+    const fa = selectedFinancialAccount;
+    if (!fa || fa.creditMin == null || fa.creditMax == null || !fa.purchaseApr || !fa.billingCycle || fa.gracePeriod == null) {
+      setSubmitError('Selected financial account is missing required credit settings.'); return;
     }
-    if (!billingCycle) { setSubmitError('Select a billing cycle.'); return; }
 
-    const gpNum = Number(gracePeriod);
-    if (!gracePeriod || isNaN(gpNum) || !Number.isInteger(gpNum) || gpNum < 1 || gpNum > 90) {
-      setSubmitError('Grace Period must be a whole number between 1 and 90 days.'); return;
+    const faMinNum = Number(fa.creditMin);
+    const faMaxNum = Number(fa.creditMax);
+    if (faMaxNum <= faMinNum) { setSubmitError('Selected financial account has an invalid credit limit range (Max must be greater than Min).'); return; }
+
+    const faAprNum = parseFloat(fa.purchaseApr);
+    if (isNaN(faAprNum) || faAprNum < 0.01 || faAprNum > 99.99) {
+      setSubmitError('Selected financial account has an invalid Purchase APR.'); return;
+    }
+
+    const faGpNum = Number(fa.gracePeriod);
+    if (isNaN(faGpNum) || !Number.isInteger(faGpNum) || faGpNum < 1 || faGpNum > 90) {
+      setSubmitError('Selected financial account has an invalid Grace Period.'); return;
     }
 
     if (!svcName.trim()) { setSubmitError('Customer Service Name is required.'); return; }
@@ -205,6 +238,17 @@ export default function CreateSubProgramView({ navigate, programId }) {
     }
 
     if (!legalPkgId) { setSubmitError('Select an approved legal terms package.'); return; }
+
+    if (rewardEnabled) {
+      if (!rewardName.trim()) { setSubmitError('Enter a reward name.'); return; }
+      if (!rewardType) { setSubmitError('Select a reward type.'); return; }
+      if (!earnRate.trim()) { setSubmitError('Enter an earn rate.'); return; }
+      if (!spendRule) { setSubmitError('Select a spend rule.'); return; }
+      if (!rewardPeriod) { setSubmitError('Select a reward period.'); return; }
+      if (!eventRule) { setSubmitError('Select an event rule.'); return; }
+      if (redemptionOptions.length === 0) { setSubmitError('Select at least one redemption option.'); return; }
+      if (!redemptionThreshold.trim()) { setSubmitError('Enter a redemption threshold.'); return; }
+    }
 
     setSubmitError('');
 
@@ -229,11 +273,23 @@ export default function CreateSubProgramView({ navigate, programId }) {
       usageType,
       classification,
       validPeriod,
-      creditMin,
-      creditMax,
-      purchaseApr,
-      billingCycle,
-      gracePeriod,
+      financialAccountId: fa.id,
+      financialAccountSnapshot: {
+        id: fa.id,
+        name: fa.name,
+        type: fa.type,
+        currency: fa.currency,
+        creditMin: fa.creditMin,
+        creditMax: fa.creditMax,
+        purchaseApr: fa.purchaseApr,
+        billingCycle: fa.billingCycle,
+        gracePeriod: fa.gracePeriod,
+      },
+      creditMin: fa.creditMin,
+      creditMax: fa.creditMax,
+      purchaseApr: fa.purchaseApr,
+      billingCycle: fa.billingCycle,
+      gracePeriod: fa.gracePeriod,
       svcName: svcName.trim(),
       svcPhone: svcPhone.trim(),
       svcEmail: svcEmail.trim(),
@@ -246,6 +302,7 @@ export default function CreateSubProgramView({ navigate, programId }) {
       cardTotalPrice: tPrice,
       legalTermsPackageId: legalPkgId,
       legalTermsSnapshot: selectedLegalPkg ? { ...selectedLegalPkg } : null,
+      rewardsEnabled: rewardEnabled,
       rewardsProgram: rewardEnabled ? {
         name: rewardName.trim(),
         type: rewardType,
@@ -315,7 +372,12 @@ export default function CreateSubProgramView({ navigate, programId }) {
             <div style={{ fontSize: 12.5, color: 'var(--fta-text-4)', marginTop: 3 }}>Set the General Information, Card Setting, and Spending Limit Setting for the Sub-program</div>
           </div>
         </div>
-        <button className="btn btn-ghost" onClick={() => programObj ? navigate('program-detail', programId) : navigate('subprograms')}>Cancel</button>
+        <div style={{ display: 'flex', gap: 10 }}>
+          {import.meta.env.DEV && (
+            <button type="button" className="btn btn-ghost" onClick={fillDemoData} style={{ fontSize: 12, opacity: 0.75 }}>Fill Demo Data</button>
+          )}
+          <button className="btn btn-ghost" onClick={() => programObj ? navigate('program-detail', programId) : navigate('subprograms')}>Cancel</button>
+        </div>
       </div>
 
       <div style={{ display: 'flex', gap: 28, alignItems: 'flex-start' }}>
@@ -461,29 +523,56 @@ export default function CreateSubProgramView({ navigate, programId }) {
                   </FormField>
                 </div>
                 <hr style={{ border: 'none', borderTop: '1px solid var(--fta-line-3)', margin: '20px 0 16px' }} />
-                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 14 }}>Credit Card Settings</div>
-                <div style={{ display: 'flex', gap: 18, marginBottom: 18 }}>
-                  <FormField label="Credit Limit Range (Min, USD)" required>
-                    <div className="input"><input type="number" placeholder="e.g. 500" min="0" step="1" value={creditMin} onChange={e => setCreditMin(e.target.value)} /></div>
-                  </FormField>
-                  <FormField label="Credit Limit Range (Max, USD)" required>
-                    <div className="input"><input type="number" placeholder="e.g. 20000" min="0" step="1" value={creditMax} onChange={e => setCreditMax(e.target.value)} /></div>
-                  </FormField>
-                </div>
-                <div style={{ display: 'flex', gap: 18, marginBottom: 14 }}>
-                  <FormField label="Purchase APR (%)" required>
-                    <div className="input"><input type="number" placeholder="e.g. 19.99" step="0.01" min="0.01" max="99.99" value={purchaseApr} onChange={e => setPurchaseApr(e.target.value)} /></div>
-                  </FormField>
-                  <FormField label="Billing Cycle" required>
-                    <div className="select"><select value={billingCycle} onChange={e => setBillingCycle(e.target.value)}>
-                      <option value="">Please Select</option>
-                      <option>Monthly – 1st</option><option>Monthly – 15th</option><option>Monthly – Last day</option>
-                    </select></div>
-                  </FormField>
-                  <FormField label="Grace Period (days)" required>
-                    <div className="input"><input type="number" placeholder="1–90" min="1" max="90" value={gracePeriod} onChange={e => setGracePeriod(e.target.value)} /></div>
-                  </FormField>
-                </div>
+                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 14 }}>Financial Account</div>
+                <FormField label="Financial Account" required style={{ marginBottom: selectedFinancialAccount ? 16 : 6 }}>
+                  <div className="select">
+                    <select value={financialAccountId} onChange={e => setFinancialAccountId(e.target.value)}>
+                      <option value="">— Select Financial Account —</option>
+                      {AppData.financialAccounts.map(a => (
+                        <option key={a.id} value={a.id}>{a.name} ({a.id})</option>
+                      ))}
+                    </select>
+                  </div>
+                  {!financialAccountId && (
+                    <div style={{ fontSize: 12, color: 'var(--fta-text-3)', marginTop: 6 }}>
+                      Select a financial account to load credit limit, APR, billing cycle, and grace period settings.
+                    </div>
+                  )}
+                </FormField>
+
+                {selectedFinancialAccount && (
+                  <div style={{ background: 'var(--fta-fill-2)', border: '1px solid var(--fta-line-2)', borderRadius: 8, padding: '16px 18px', marginBottom: 16 }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--fta-text-3)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 12 }}>Financial Account Details</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px 24px', marginBottom: 18 }}>
+                      {[
+                        ['Name',     selectedFinancialAccount.name],
+                        ['Type',     selectedFinancialAccount.type],
+                        ['Currency', selectedFinancialAccount.currency],
+                      ].map(([label, val]) => (
+                        <div key={label}>
+                          <div style={{ fontSize: 11, color: 'var(--fta-text-3)', marginBottom: 2 }}>{label}</div>
+                          <div style={{ fontSize: 13, fontWeight: 500, color: '#333333' }}>{val || '—'}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--fta-text-3)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 12 }}>Credit Settings</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 24px' }}>
+                      {[
+                        ['Credit Limit Range (Min, USD)', selectedFinancialAccount.creditMin ? `$ ${Number(selectedFinancialAccount.creditMin).toLocaleString()}` : '—'],
+                        ['Credit Limit Range (Max, USD)', selectedFinancialAccount.creditMax ? `$ ${Number(selectedFinancialAccount.creditMax).toLocaleString()}` : '—'],
+                        ['Purchase APR (%)',              selectedFinancialAccount.purchaseApr ? `${selectedFinancialAccount.purchaseApr}%` : '—'],
+                        ['Billing Cycle',                 selectedFinancialAccount.billingCycle || '—'],
+                        ['Grace Period (days)',           selectedFinancialAccount.gracePeriod ? `${selectedFinancialAccount.gracePeriod} days` : '—'],
+                      ].map(([label, val]) => (
+                        <div key={label}>
+                          <div style={{ fontSize: 11, color: 'var(--fta-text-3)', marginBottom: 2 }}>{label}</div>
+                          <div style={{ fontSize: 13, fontWeight: 500, color: '#333333' }}>{val}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <button className="btn btn-primary btn-sm" onClick={() => saveAcc('card')}>Save</button>
               </Accordion>
 
@@ -491,7 +580,8 @@ export default function CreateSubProgramView({ navigate, programId }) {
               <Accordion
                 title="Rewards Program"
                 sub="Configure reward policies for this sub-program, including earn rates, spend rules, and redemption settings."
-                open={openAcc.reward} done={accDone.reward}
+                open={openAcc.reward}
+                done={!rewardEnabled || !!(rewardName.trim() && rewardType && earnRate.trim() && spendRule && rewardPeriod && eventRule && redemptionOptions.length > 0 && redemptionThreshold.trim())}
                 onToggle={() => toggleAcc('reward')}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20, padding: '12px 14px', background: 'var(--fta-fill-2)', borderRadius: 8 }}>

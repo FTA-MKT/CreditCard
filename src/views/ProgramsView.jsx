@@ -1,7 +1,23 @@
 import React, { useState } from 'react';
 import { Icon, StatusPill, Breadcrumb } from '../components/Shell';
-import { ColorAvatar, FilterField, Field, Pager, ProgramLogo, NetworkMark } from '../components/shared';
+import { ColorAvatar, Field, Pager, ProgramLogo, NetworkMark } from '../components/shared';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Button } from '../components/ui/button';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableActionHead, TableActionCell } from '../components/ui/table';
+import { Badge } from '../components/ui/badge';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../components/ui/dropdown-menu';
+import { MoreHorizontal, Plus, Search } from 'lucide-react';
 import AppData from '../data/AppData';
+import { useDataTableState } from '../components/business/data-display/useDataTableControls';
+import { StandardDataTable } from '../components/business/data-display/StandardDataTable';
+import { DataTableEmptyStateRow } from '../components/business/data-display/DataTableEmptyState';
+
+function statusVariant(status) {
+  if (['Active', 'Published', 'Verified', 'Case Won', 'Posted'].includes(status)) return 'default';
+  if (['Inactive', 'Closed', 'Case Closed'].includes(status)) return 'secondary';
+  if (['Declined', 'Failed', 'At-Risk', 'Disputed'].includes(status)) return 'destructive';
+  return 'outline';
+}
 
 export default function ProgramsView({ navigate, navParam, initialTab }) {
   if (navParam) {
@@ -12,13 +28,12 @@ export default function ProgramsView({ navigate, navParam, initialTab }) {
 }
 
 function ProgramList({ navigate }) {
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All Status');
-
-  const filtered = AppData.programs.filter(p => {
-    const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.id.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = statusFilter === 'All Status' || p.status === statusFilter;
-    return matchSearch && matchStatus;
+  const state = useDataTableState({
+    data: AppData.programs,
+    searchPredicate: (p, q) =>
+      p.name.toLowerCase().includes(q) ||
+      p.id.toLowerCase().includes(q) ||
+      p.contact.toLowerCase().includes(q),
   });
 
   return (
@@ -28,76 +43,75 @@ function ProgramList({ navigate }) {
           <h1 className="page-title">Program</h1>
           <div className="page-subtitle">Card programs and their sub-programs · As of 03/12/2024</div>
         </div>
-        <button className="btn btn-primary" onClick={() => navigate('create-program')}>
-          <Icon name="plus" size={14} />
+        <Button onClick={() => navigate('create-program')}>
+          <Plus size={14} />
           Create Program
-        </button>
+        </Button>
       </div>
 
-      <div className="card" style={{ padding: 16 }}>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <FilterField label="Status" style={{ width: 200 }}>
-            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
-              <option>All Status</option>
-              <option>Active</option>
-              <option>Inactive</option>
-              <option>Under Review</option>
-            </select>
-          </FilterField>
-          <FilterField label="Network" style={{ width: 200 }}>
-            <select defaultValue="All"><option>All</option><option>Visa</option><option>Mastercard</option></select>
-          </FilterField>
-          <FilterField label="Date Range" style={{ width: 200 }}>
-            <select defaultValue="Last 90 days"><option>Last 90 days</option><option>Last 30 days</option><option>Year-to-date</option></select>
-          </FilterField>
-          <div style={{ flex: 1 }} />
-          <button className="btn btn-ghost" onClick={() => { setSearch(''); setStatusFilter('All Status'); }}>Reset</button>
-          <button className="btn btn-primary">Search</button>
-        </div>
-      </div>
-
-      <div className="card" style={{ padding: 0 }}>
-        <div className="table-toolbar" style={{ padding: '16px 20px 0' }}>
-          <h2>Program List <span style={{ color: 'var(--fta-text-3)', fontWeight: 400, fontSize: 13, marginLeft: 6 }}>({filtered.length})</span></h2>
-          <div className="right">
-            <div className="input" style={{ width: 320 }}>
-              <Icon name="search" className="ico" />
-              <input placeholder="Search program name, ID, contact" value={search} onChange={e => setSearch(e.target.value)} />
-            </div>
-          </div>
-        </div>
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Program Name</th><th>Program ID</th><th>Contact</th><th>Account Manager</th>
-              <th style={{ textAlign: 'right' }}>Sub-programs</th><th style={{ textAlign: 'right' }}>Cards Issued</th>
-              <th>Status</th><th>Last Updated</th><th style={{ textAlign: 'right' }}>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map(p => (
-              <tr key={p.id} className="--clickable" onClick={() => navigate('program-detail', p.id)}>
-                <td><div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><ProgramLogo /><span style={{ fontWeight: 500 }}>{p.name}</span></div></td>
-                <td className="mono muted">{p.id}</td>
-                <td>{p.contact}</td>
-                <td><div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><ColorAvatar name={p.manager} size="sm" /><span>{p.manager}</span></div></td>
-                <td style={{ textAlign: 'right' }}>{p.subs}</td>
-                <td style={{ textAlign: 'right' }}>{p.cards.toLocaleString()}</td>
-                <td><StatusPill status={p.status} /></td>
-                <td className="muted">{p.updated}</td>
-                <td style={{ textAlign: 'right' }}>
-                  <button className="btn btn-sm btn-ghost" onClick={e => { e.stopPropagation(); navigate('program-detail', p.id); }}>View</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <div className="table-foot">
-          <span>Total {filtered.length} items</span>
-          <Pager />
-        </div>
-      </div>
+      <StandardDataTable
+        title="Program List"
+        search={{
+          value: state.search,
+          onChange: state.setSearch,
+          placeholder: 'Search program name, ID, contact',
+        }}
+        state={state}
+        tableProps={{ widthBehavior: 'fill', showColumnBorders: false }}
+        header={
+          <TableHeader>
+            <TableRow>
+              <TableHead columnId="program-name">Program Name</TableHead>
+              <TableHead columnId="program-status">Status</TableHead>
+              <TableHead columnId="program-industry">Industry</TableHead>
+              <TableActionHead />
+            </TableRow>
+          </TableHeader>
+        }
+        renderRows={(s) =>
+          s.pageRows.map((p) => (
+            <TableRow
+              key={p.id}
+              className="cursor-pointer"
+              onClick={() => navigate('program-detail', p.id)}
+            >
+              <TableCell>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <ProgramLogo />
+                  <span style={{ fontWeight: 500 }}>{p.name}</span>
+                </div>
+              </TableCell>
+              <TableCell>
+                <ProgramStatusDot status={p.status} />
+              </TableCell>
+              <TableCell>{p.industry}</TableCell>
+              <TableActionCell>
+                <button
+                  className="text-sm text-primary hover:underline whitespace-nowrap"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {p.status === 'Active' ? 'Deactivate' : 'Activate'}
+                </button>
+              </TableActionCell>
+            </TableRow>
+          ))
+        }
+        emptyState={<DataTableEmptyStateRow colSpan={4} />}
+      />
     </div>
+  );
+}
+
+function ProgramStatusDot({ status }) {
+  const dotColor =
+    status === 'Active' ? '#22c55e' :
+    status === 'Inactive' ? '#9ca3af' :
+    '#f59e0b';
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+      <span style={{ width: 6, height: 6, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
+      {status}
+    </span>
   );
 }
 
@@ -170,45 +184,90 @@ function ProgramDetailsForm({ program }) {
 function SubProgramsList({ programId, navigate }) {
   const subs = AppData.subPrograms.filter(s => s.programId === programId);
   return (
-    <div className="card" style={{ padding: 0 }}>
-      <div className="table-toolbar" style={{ padding: '16px 20px 0' }}>
-        <h2>Sub-program List <span style={{ color: 'var(--fta-text-3)', fontWeight: 400, fontSize: 13, marginLeft: 6 }}>({subs.length})</span></h2>
-        <div className="right">
-          <div className="input" style={{ width: 280 }}>
-            <Icon name="search" className="ico" />
-            <input placeholder="Search Sub-Program name, ID, BIN" />
+    <Card style={{ padding: 0 }}>
+      <CardHeader style={{ padding: '16px 20px 12px', borderBottom: '1px solid var(--fta-line-3)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <CardTitle style={{ fontSize: 15 }}>
+            Sub-program List
+            <span style={{ color: 'var(--fta-text-3)', fontWeight: 400, fontSize: 13, marginLeft: 6 }}>({subs.length})</span>
+          </CardTitle>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div className="input" style={{ width: 260 }}>
+              <Search size={14} className="ico" style={{ color: 'var(--fta-text-3)' }} />
+              <input placeholder="Search Sub-Program name, ID, BIN" />
+            </div>
+            <Button size="sm" onClick={() => navigate('create-subprogram', programId)}>
+              <Plus size={13} />
+              Create Sub-program
+            </Button>
           </div>
-          <button className="btn btn-primary btn-sm" onClick={() => navigate('create-subprogram', programId)}><Icon name="plus" size={12} />Create Sub-program</button>
         </div>
-      </div>
-      <table className="table">
-        <thead>
-          <tr>
-            <th>Sub-program Name</th><th>Sub-program ID</th><th>BIN Prefix</th><th>Network</th>
-            <th>Type</th><th style={{ textAlign: 'right' }}>Cards</th><th>Status</th><th style={{ textAlign: 'right' }}>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {subs.length === 0 ? (
-            <tr><td colSpan={8} style={{ textAlign: 'center', padding: '32px 20px', color: 'var(--fta-text-3)', fontSize: 13 }}>No sub-programs yet. Click "Create Sub-program" to add one.</td></tr>
-          ) : subs.map(s => (
-            <tr key={s.id} className="--clickable" onClick={() => navigate('subprogram-detail', { id: s.id, from: 'program' })}>
-              <td style={{ fontWeight: 500 }}>{s.name}</td>
-              <td className="mono muted">{s.id}</td>
-              <td className="mono">{s.bin}</td>
-              <td><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><NetworkMark network={s.network} />{s.network}</span></td>
-              <td>{s.type}</td>
-              <td style={{ textAlign: 'right' }}>{(s.cards || 0).toLocaleString()}</td>
-              <td><StatusPill status={s.status} /></td>
-              <td style={{ textAlign: 'right' }}>
-                <button className="btn btn-sm btn-ghost" onClick={e => { e.stopPropagation(); navigate('subprogram-detail', { id: s.id, from: 'program' }); }}>View</button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <div className="table-foot"><span>Total {subs.length} items</span><Pager /></div>
-    </div>
+      </CardHeader>
+      <CardContent style={{ padding: 0 }}>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead columnId="sub-name">Sub-program Name</TableHead>
+              <TableHead columnId="sub-id">Sub-program ID</TableHead>
+              <TableHead columnId="sub-bin">BIN Prefix</TableHead>
+              <TableHead columnId="sub-network">Network</TableHead>
+              <TableHead columnId="sub-type">Type</TableHead>
+              <TableHead columnId="sub-cards" className="text-right">Cards</TableHead>
+              <TableHead columnId="sub-status">Status</TableHead>
+              <TableActionHead />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {subs.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={8} className="text-center text-muted-foreground py-8 text-sm">
+                  No sub-programs yet. Click "Create Sub-program" to add one.
+                </TableCell>
+              </TableRow>
+            ) : subs.map(s => (
+              <TableRow
+                key={s.id}
+                className="cursor-pointer"
+                onClick={() => navigate('subprogram-detail', { id: s.id, from: 'program' })}
+              >
+                <TableCell style={{ fontWeight: 500 }}>{s.name}</TableCell>
+                <TableCell className="font-mono text-muted-foreground">{s.id}</TableCell>
+                <TableCell className="font-mono">{s.bin}</TableCell>
+                <TableCell>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <NetworkMark network={s.network} />{s.network}
+                  </span>
+                </TableCell>
+                <TableCell>{s.type}</TableCell>
+                <TableCell className="text-right">{(s.cards || 0).toLocaleString()}</TableCell>
+                <TableCell>
+                  <Badge variant={statusVariant(s.status)}>{s.status}</Badge>
+                </TableCell>
+                <TableActionCell>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      className="inline-flex items-center justify-center h-8 w-8 rounded-md hover:bg-accent text-muted-foreground"
+                      onClick={e => e.stopPropagation()}
+                    >
+                      <MoreHorizontal size={16} />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={e => { e.stopPropagation(); navigate('subprogram-detail', { id: s.id, from: 'program' }); }}>
+                        View Details
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableActionCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        <div className="table-foot">
+          <span>Total {subs.length} items</span>
+          <Pager />
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

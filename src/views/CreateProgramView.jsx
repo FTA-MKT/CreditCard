@@ -27,6 +27,17 @@ export default function CreateCreditCardProgramView({ navigate }) {
     setTimeout(() => { const el = document.querySelector('.content'); if (el) el.scrollTop = 0; }, 0);
   }
 
+  function fillDemoData() {
+    setProgName(`Test Program ${Date.now()}`);
+    setBusinessName('Demo Business Corp.');
+    setBusinessAccount('Finbank Credit Account 8888');
+    setIndustry('Financial Services');
+    setContactName('Jane Demo');
+    setContactPhone('+1 (555) 000-1234');
+    setManagerName('John Demo');
+    setManagerPhone('+1 (555) 000-5678');
+  }
+
   function handleSubmit() {
     if (!progName.trim()) { setSubmitError('Program Name is required. Please go back to Step 1.'); return; }
     setSubmitError('');
@@ -129,7 +140,12 @@ export default function CreateCreditCardProgramView({ navigate }) {
             <div style={{fontSize:13,color:'#718096',marginTop:2}}>Set up the program branding and business information.</div>
           </div>
         </div>
-        <button className="btn btn-ghost" onClick={() => navigate('programs')}>Cancel</button>
+        <div style={{ display: 'flex', gap: 10 }}>
+          {import.meta.env.DEV && (
+            <button type="button" className="btn btn-ghost" onClick={fillDemoData} style={{ fontSize: 12, opacity: 0.75 }}>Fill Demo Data</button>
+          )}
+          <button className="btn btn-ghost" onClick={() => navigate('programs')}>Cancel</button>
+        </div>
       </div>
 
       <div className="cp-layout">

@@ -147,19 +147,46 @@ export function NestedProgramView({ navigate, navParam }) {
               <Field label="Usage Type" value={v(sub.usageType)} />
               <Field label="Classification" value={v(sub.classification)} />
             </div>
-            <div className="grid-2" style={{ marginBottom: 16 }}>
-              <Field label="Valid Period" value={v(sub.validPeriod)} />
-              <Field label="Grace Period" value={sub.gracePeriod ? `${sub.gracePeriod} days` : '—'} />
-            </div>
-            <div className="grid-2" style={{ marginBottom: 16 }}>
-              <Field label="Credit Limit (Min)" value={sub.creditMin ? `$ ${Number(sub.creditMin).toLocaleString()}` : '—'} />
-              <Field label="Credit Limit (Max)" value={sub.creditMax ? `$ ${Number(sub.creditMax).toLocaleString()}` : '—'} />
-            </div>
             <div className="grid-2">
-              <Field label="Purchase APR" value={sub.purchaseApr ? `${sub.purchaseApr}%` : '—'} />
-              <Field label="Billing Cycle" value={v(sub.billingCycle)} />
+              <Field label="Valid Period" value={v(sub.validPeriod)} />
             </div>
           </div>
+
+          {/* Financial Account + Credit Settings */}
+          {(() => {
+            const snap = sub.financialAccountSnapshot
+              ?? (sub.financialAccountId ? AppData.financialAccounts.find(a => a.id === sub.financialAccountId) ?? null : null);
+            const hasLegacy = sub.creditMin || sub.creditMax || sub.purchaseApr || sub.billingCycle || sub.gracePeriod;
+            const cs = snap ?? (hasLegacy ? sub : null);
+            return (
+              <div className="card">
+                <div className="card-section-title">Financial Account</div>
+                <div className="grid-2" style={{ marginBottom: 16 }}>
+                  <Field label="Name"     value={snap ? snap.name     : 'Not configured'} />
+                  <Field label="Type"     value={snap ? snap.type     : 'Not configured'} />
+                </div>
+                <div className="grid-2" style={{ marginBottom: cs ? 16 : 0 }}>
+                  <Field label="Currency" value={snap ? snap.currency : 'Not configured'} />
+                </div>
+                {cs && (
+                  <>
+                    <div className="card-section-title" style={{ marginTop: 8 }}>Credit Settings</div>
+                    <div className="grid-2" style={{ marginBottom: 16 }}>
+                      <Field label="Credit Limit (Min)" value={cs.creditMin ? `$ ${Number(cs.creditMin).toLocaleString()}` : '—'} />
+                      <Field label="Credit Limit (Max)" value={cs.creditMax ? `$ ${Number(cs.creditMax).toLocaleString()}` : '—'} />
+                    </div>
+                    <div className="grid-2" style={{ marginBottom: 16 }}>
+                      <Field label="Purchase APR"  value={cs.purchaseApr  ? `${cs.purchaseApr}%` : '—'} />
+                      <Field label="Billing Cycle" value={cs.billingCycle || '—'} />
+                    </div>
+                    <div className="grid-2">
+                      <Field label="Grace Period" value={cs.gracePeriod ? `${cs.gracePeriod} days` : '—'} />
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })()}
 
           <div className="card">
             <div className="card-section-title">Customer Service</div>
@@ -298,7 +325,7 @@ function SubCardsTab({ sub, navigate, program }) {
   });
 
   function handleCreateCard() {
-    navigate('create-card', { programId: sub.programId, subprogramId: sub.id, from: 'subprogram-cards' });
+    navigate('issue-card', { programId: sub.programId, subprogramId: sub.id, from: 'subprogram-cards' });
   }
 
   return (
@@ -607,7 +634,7 @@ function cardNetworkGradient(network) {
 
 export function CardsView({ navigate }) {
   const [search, setSearch] = useState('');
-  const allCards = AppData.customers.flatMap(c => {
+  const generatedCards = AppData.customers.flatMap(c => {
     const networks = ['Visa', 'Mastercard', 'Visa', 'Mastercard'];
     return Array.from({ length: c.cards }, (_, i) => ({
       id: `${c.id}-card-${i}`,
@@ -619,6 +646,16 @@ export function CardsView({ navigate }) {
       created: c.created,
     }));
   });
+  const issuedCards = AppData.cards.map(c => ({
+    id: c.id,
+    holder: c.cardholderSnapshot?.name || '',
+    last4: c.id.replace(/\D/g, '').slice(-4),
+    network: c.network || 'Visa',
+    type: c.formFactors?.includes('Physical') ? 'Physical' : 'Virtual',
+    status: c.cardStatus || 'Active',
+    created: c.createdAt ? new Date(c.createdAt).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }) : '',
+  }));
+  const allCards = [...generatedCards, ...issuedCards];
 
   const filtered = allCards.filter(c =>
     !search ||
@@ -633,7 +670,7 @@ export function CardsView({ navigate }) {
           <h1 className="page-title">Cards</h1>
           <div className="page-subtitle">All issued cards across all programs · {allCards.length.toLocaleString()} total</div>
         </div>
-        <button className="btn btn-primary"><Icon name="plus" size={14} />Issue Card</button>
+        <button className="btn btn-primary" onClick={() => navigate('issue-card', { from: 'global-cards' })}><Icon name="plus" size={14} />Issue Card</button>
       </div>
 
       <div className="grid-3">

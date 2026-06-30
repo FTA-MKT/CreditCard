@@ -224,6 +224,24 @@ export default function CreateCardView({ navigate, navParam }) {
 
   const goBackToSub = () => navigate('subprogram-detail', { id: subprogramId, from: 'program', tab: 'cards' });
 
+  function fillDemoData() {
+    setCardName(`Test Card ${Date.now()}`);
+    setNetwork('Visa');
+    setUsageType('Multi-use');
+    setValidPeriod('3 Years');
+    setSvcName('Demo Card Service');
+    setSvcPhone('+1 (555) 000-9999');
+    setSvcEmail('support@demo.com');
+    setCardFrontArtwork({ fileName: 'demo-card-front.png', fileType: 'image/png', width: 1012, height: 638, previewUrl: '', isDemo: true });
+    setCardBackArtwork({ fileName: 'demo-card-back.png', fileType: 'image/png', width: 1012, height: 638, previewUrl: '', isDemo: true });
+    setCardFrontError('');
+    setCardBackError('');
+    setCardMaterial('Standard PVC');
+    setCardQuantity('5000');
+    setLegalPkgId(AppData.approvedLegalTermsPackages[0]?.id || '');
+    setOpenAcc({ card: true, service: true, style: true, legal: true });
+  }
+
   return (
     <div className="content-inner fade-in">
       {/* Breadcrumb */}
@@ -250,7 +268,12 @@ export default function CreateCardView({ navigate, navParam }) {
             <div style={{ fontSize: 12.5, color: 'var(--fta-text-4)', marginTop: 3 }}>Define a card product for this sub-program</div>
           </div>
         </div>
-        <button className="btn btn-ghost" onClick={goBackToSub}>Cancel</button>
+        <div style={{ display: 'flex', gap: 10 }}>
+          {import.meta.env.DEV && (
+            <button type="button" className="btn btn-ghost" onClick={fillDemoData} style={{ fontSize: 12, opacity: 0.75 }}>Fill Demo Data</button>
+          )}
+          <button className="btn btn-ghost" onClick={goBackToSub}>Cancel</button>
+        </div>
       </div>
 
       <div style={{ display: 'flex', gap: 28, alignItems: 'flex-start' }}>

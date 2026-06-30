@@ -379,6 +379,43 @@ const approvedLegalTermsPackages = [
 
 const cards = [];
 
+// ── Financial Accounts (credit account product templates) ─────
+const financialAccounts = [
+  {
+    id: 'FA-001',
+    name: 'Standard Credit Account',
+    type: 'Credit Account',
+    currency: 'USD',
+    creditMin: '500',
+    creditMax: '20000',
+    purchaseApr: '19.99',
+    billingCycle: 'Monthly',
+    gracePeriod: '21',
+  },
+  {
+    id: 'FA-002',
+    name: 'Premium Rewards Credit Account',
+    type: 'Credit Account',
+    currency: 'USD',
+    creditMin: '5000',
+    creditMax: '50000',
+    purchaseApr: '16.99',
+    billingCycle: 'Monthly',
+    gracePeriod: '25',
+  },
+  {
+    id: 'FA-003',
+    name: 'Secured Credit Account',
+    type: 'Credit Account',
+    currency: 'USD',
+    creditMin: '300',
+    creditMax: '5000',
+    purchaseApr: '22.99',
+    billingCycle: 'Monthly',
+    gracePeriod: '21',
+  },
+];
+
 const AppData = {
   kpis,
   monthly,
@@ -395,6 +432,7 @@ const AppData = {
   spend,
   billing,
   approvedLegalTermsPackages,
+  financialAccounts,
   cards,
 };
 
