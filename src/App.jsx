@@ -13,6 +13,7 @@ import CreateProgramView from './views/CreateProgramView';
 import CreateSubProgramView from './views/CreateSubProgramView';
 import CreateCardView from './views/CreateCardView';
 import IssueCardView from './views/IssueCardView';
+import CardDetailView from './views/CardDetailView';
 
 const TWEAK_DEFAULTS = {
   accent: '#1634A4',
@@ -59,6 +60,7 @@ export default function App() {
       case 'create-card':                     return <CreateCardView navigate={navigate} navParam={param} />;
       case 'issue-card':                      return <IssueCardView navigate={navigate} navParam={param} />;
       case 'cards':                           return <CardsView navigate={navigate} />;
+      case 'card-detail':                     return <CardDetailView navigate={navigate} navParam={param} />;
       case 'customers':
       case 'customer-detail':                 return <CustomersView navigate={navigate} navParam={param} />;
       case 'autopay-policy':

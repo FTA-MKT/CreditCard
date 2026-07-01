@@ -173,6 +173,8 @@ export default function IssueCardView({ navigate, navParam }) {
       ...(virtualEnabled  ? ['virtual']  : []),
     ];
 
+    const last4 = String(Math.floor(Math.random() * 9000) + 1000);
+
     const newCard = {
       id:            'CARD-' + String(Math.floor(Math.random() * 900000) + 100000),
       cardType:      derivedCardType || 'credit',
@@ -187,6 +189,8 @@ export default function IssueCardView({ navigate, navParam }) {
 
       cardName:      cardName.trim(),
       cardStatus:    'Active',
+      last4,
+      maskedNumber:  '**** **** **** ' + last4,
       formFactors,
       type:          formFactors.map(f => f.charAt(0).toUpperCase() + f.slice(1)).join(' / '),
       expirationDate,

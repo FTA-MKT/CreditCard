@@ -97,7 +97,7 @@ export default function CreateCreditCardProgramView({ navigate }) {
         .cp-bullet{width:28px;height:28px;border-radius:50%;border:2px solid #cbd5e0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#718096;flex-shrink:0}
         .cp-step-item.act .cp-bullet{border-color:#1a3c8f;color:#1a3c8f}
         .cp-step-item.done .cp-bullet{border-color:#48bb78;background:#48bb78;color:#fff}
-        .cp-form{flex:1;background:#fff;border-radius:12px;border:1px solid #e8eaed;padding:28px 32px;max-width:760px}
+        .cp-form{flex:1;background:#fff;border-radius:12px;border:1px solid #e8eaed;padding:28px 32px}
         .cp-sec-title{font-size:16px;font-weight:700;color:#1a1a2e;margin-bottom:4px}
         .cp-sec-sub{font-size:13px;color:#718096;margin-bottom:24px}
         .cp-group-title{font-size:13.5px;font-weight:700;color:#2d3748;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid #f0f2f5}
