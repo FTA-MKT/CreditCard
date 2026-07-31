@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Icon, StatusPill, Breadcrumb } from '../components/Shell';
-import { ColorAvatar, Field, Pager, ProgramLogo, NetworkMark } from '../components/shared';
+import { ColorAvatar, Field, Pager, ProgramLogo, NetworkMark, Toggle } from '../components/shared';
+import { RadioGroup } from '../components/forms/RadioGroup';
 import { Button } from '../components/ui/button';
 import { TableCell, TableHead, TableHeader, TableRow, TableActionHead, TableActionCell } from '../components/ui/table';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs';
@@ -186,10 +187,12 @@ function ProgramDetail({ program, navigate, initialTab }) {
         <TabsList className="h-9">
           <TabsTrigger value="details"><Icon name="list" className="ico" />Program Details</TabsTrigger>
           <TabsTrigger value="subs"><Icon name="card" className="ico" />Sub-program</TabsTrigger>
+          <TabsTrigger value="autopay"><Icon name="circle" className="ico" />Autopay Policy</TabsTrigger>
           <TabsTrigger value="files"><Icon name="file" className="ico" />Files</TabsTrigger>
         </TabsList>
         <TabsContent value="details"><ProgramDetailsForm program={program} /></TabsContent>
         <TabsContent value="subs"><SubProgramsList programId={program.id} navigate={navigate} /></TabsContent>
+        <TabsContent value="autopay"><ProgramAutopayPolicy program={program} /></TabsContent>
         <TabsContent value="files"><FilesEmpty /></TabsContent>
       </Tabs>
     </div>
@@ -211,6 +214,15 @@ function ProgramDetailsForm({ program }) {
       <div style={{ marginBottom: 24 }}>
         <Field label="Description" value={program.description || ''} editable />
       </div>
+      <div className="card-section-title">Business Information</div>
+      <div className="grid-2" style={{ marginBottom: 16 }}>
+        <Field label="Business Name" value={program.businessName || 'Not provided'} />
+        <Field label="Business Account" value={program.businessAccount || 'Not provided'} />
+      </div>
+      <div className="grid-2" style={{ marginBottom: 24 }}>
+        <Field label="Industry" value={program.industry || 'Not provided'} />
+        <Field label="Company Size" value={program.companySize || 'Not provided'} />
+      </div>
       <div className="card-section-title">Details of Cooperation</div>
       <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10 }}>Contact Information</div>
       <div className="grid-2" style={{ marginBottom: 16 }}>
@@ -230,6 +242,236 @@ function ProgramDetailsForm({ program }) {
         <Field label="Email" value={program.managerEmail || ''} />
         <Field label="Address" value={program.managerAddress || ''} />
       </div>
+    </div>
+  );
+}
+
+const AUTOPAY_ALLOWED_MODE_IDS = ['minimum', 'full', 'fixed'];
+
+function AutopayToastBanner({ message }) {
+  if (!message) return null;
+  return (
+    <div style={{
+      position: 'fixed', bottom: 24, right: 24, zIndex: 999,
+      background: 'var(--fta-text-5)', color: '#fff', padding: '10px 16px',
+      borderRadius: 8, fontSize: 13, fontWeight: 500, boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
+    }}>
+      {message}
+    </div>
+  );
+}
+
+function useAutopayToast() {
+  const [toast, setToast] = useState(null);
+  function showToast(message) {
+    setToast(message);
+    setTimeout(() => setToast(null), 1800);
+  }
+  return [toast, showToast];
+}
+
+const AUTOPAY_METHOD_LABELS = { minimum: 'Minimum Payment Due', full: 'Statement Balance', fixed: 'Fixed Amount' };
+
+function todayUS() {
+  const d = new Date();
+  return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}/${d.getFullYear()}`;
+}
+
+function ProgramAutopayPolicy({ program }) {
+  const base = program.autopayPolicy || AppData.autopay.policy;
+  const [enabled, setEnabled] = useState(program.autopayEnabled ?? true);
+  const [modes, setModes] = useState(base.modes);
+  const [timing, setTiming] = useState(base.timing === 'On Due Date' ? 'due_date' : 'days_before');
+  const [offsetDays, setOffsetDays] = useState(base.offsetDays);
+  const [reminder, setReminder] = useState(base.reminder);
+  const [reminderDays, setReminderDays] = useState(base.reminderDays);
+  const [auditLog, setAuditLog] = useState(program.autopayAuditLog || [
+    { id: 'A-0', actor: 'System', action: 'Default Policy Applied', detail: 'Autopay policy initialized with default settings.', date: program.updated || todayUS() },
+  ]);
+  const [saved, setSaved] = useState(false);
+  const [toast, showToast] = useAutopayToast();
+
+  function toggleMode(id) {
+    setModes(ms => {
+      const target = ms.find(m => m.id === id);
+      if (!target || target.locked) return ms;
+      if (target.checked && ms.filter(m => m.checked && AUTOPAY_ALLOWED_MODE_IDS.includes(m.id)).length <= 1) {
+        showToast('At least one autopay method must be enabled.');
+        return ms;
+      }
+      return ms.map(m => m.id === id ? { ...m, checked: !m.checked } : m);
+    });
+  }
+
+  function scheduleSummary(t, days) {
+    return t === 'due_date' ? 'On Due Date' : `${days} day${Number(days) === 1 ? '' : 's'} before due date`;
+  }
+
+  function handleSave() {
+    const prevModesById = Object.fromEntries(base.modes.map(m => [m.id, m.checked]));
+    const lines = [];
+
+    const prevEnabled = program.autopayEnabled ?? true;
+    if (prevEnabled !== enabled) lines.push(enabled ? 'Enabled autopay policy' : 'Disabled autopay policy');
+
+    AUTOPAY_ALLOWED_MODE_IDS.forEach(id => {
+      const m = modes.find(x => x.id === id);
+      if (m && prevModesById[id] !== m.checked) {
+        lines.push(`${m.checked ? 'Enabled' : 'Disabled'} ${AUTOPAY_METHOD_LABELS[id]} method`);
+      }
+    });
+
+    const prevSchedule = scheduleSummary(base.timing === 'On Due Date' ? 'due_date' : 'days_before', base.offsetDays);
+    const nextSchedule = scheduleSummary(timing, offsetDays);
+    if (prevSchedule !== nextSchedule) lines.push(`Updated execution schedule to ${nextSchedule}`);
+
+    if ((base.reminder ?? false) !== reminder) {
+      lines.push(reminder ? `Enabled reminder (${reminderDays} days before payment)` : 'Disabled reminder');
+    } else if (reminder && base.reminderDays !== Number(reminderDays)) {
+      lines.push(`Updated reminder to ${reminderDays} days before payment`);
+    }
+
+    let nextLog = auditLog;
+    if (lines.length) {
+      nextLog = [
+        { id: `A-${auditLog.length}`, actor: 'Admin User', action: 'Policy Updated', detail: lines.join('; '), date: todayUS() },
+        ...auditLog,
+      ];
+      setAuditLog(nextLog);
+    }
+
+    program.autopayEnabled = enabled;
+    program.autopayPolicy = { ...base, modes, timing: timing === 'due_date' ? 'On Due Date' : `${offsetDays} Days Before Due`, offsetDays: Number(offsetDays), reminder, reminderDays: Number(reminderDays) };
+    program.autopayAuditLog = nextLog;
+
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
+  }
+
+  const enabledCount = modes.filter(m => m.checked && AUTOPAY_ALLOWED_MODE_IDS.includes(m.id)).length;
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div style={{ fontSize: 13, color: 'var(--fta-text-4)' }}>
+          Program-level autopay configuration for {program.name}.
+        </div>
+        <button className="btn btn-primary btn-sm" onClick={handleSave}>{saved ? 'Saved ✓' : 'Save Changes'}</button>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {/* 1. Policy Status */}
+        <div className="card">
+          <div className="card-section-title">Policy Status</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <div style={{ fontWeight: 500 }}>{enabled ? 'Enabled' : 'Disabled'}</div>
+              <div style={{ fontSize: 12, color: 'var(--fta-text-4)' }}>
+                {enabled ? 'Autopay is available to cardholders under this program.' : 'Autopay is turned off for this program — no payments will be scheduled.'}
+              </div>
+            </div>
+            <Toggle on={enabled} onClick={() => setEnabled(e => !e)} />
+          </div>
+        </div>
+
+        {/* 2. Allowed Autopay Methods */}
+        <div className="card">
+          <div className="card-section-title">Allowed Autopay Methods</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {AUTOPAY_ALLOWED_MODE_IDS.map(id => {
+              const m = modes.find(x => x.id === id);
+              if (!m) return null;
+              return (
+                <div key={m.id} style={{ border: '1px solid var(--fta-line-3)', borderRadius: 10, padding: 14, background: m.locked ? 'var(--fta-fill-2)' : 'transparent' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+                    <div>
+                      <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        {AUTOPAY_METHOD_LABELS[id]}
+                        {m.locked && (
+                          <span style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 7px', borderRadius: 8, background: '#e2e8f0', color: 'var(--fta-text-4)', textTransform: 'uppercase', letterSpacing: 0.3 }}>Locked</span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--fta-text-4)', marginTop: 3 }}>{m.desc}</div>
+                      {m.locked && <div style={{ fontSize: 11.5, color: 'var(--fta-text-3)', marginTop: 3 }}>Reason: Safety floor — cannot be disabled.</div>}
+                    </div>
+                    <Toggle on={m.checked} onClick={() => toggleMode(m.id)} disabled={m.locked || !enabled} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {enabledCount === 0 && (
+            <div style={{ marginTop: 12, fontSize: 12, color: 'var(--fta-error)' }}>At least one autopay method must be enabled.</div>
+          )}
+        </div>
+
+        {/* 3. Execution Schedule */}
+        <div className="card">
+          <div className="card-section-title">Execution Schedule</div>
+          <RadioGroup
+            name={`timing-${program.id}`}
+            value={timing}
+            onChange={setTiming}
+            options={[
+              { value: 'due_date', label: 'Due Date' },
+              { value: 'days_before', label: 'Days Before Due Date' },
+            ]}
+          />
+          {timing === 'days_before' && (
+            <div style={{ marginTop: 14, maxWidth: 220 }}>
+              <div className="field-label">Number of Days</div>
+              <div className="input"><input type="number" value={offsetDays} onChange={e => setOffsetDays(e.target.value)} min={1} max={30} /></div>
+            </div>
+          )}
+        </div>
+
+        {/* 4. Reminder */}
+        <div className="card">
+          <div className="card-section-title">Reminder</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: reminder ? 16 : 0 }}>
+            <div>
+              <div style={{ fontWeight: 500 }}>Enable reminder</div>
+              <div style={{ fontSize: 12, color: 'var(--fta-text-4)' }}>Notify cardholders before autopay processes</div>
+            </div>
+            <Toggle on={reminder} onClick={() => setReminder(r => !r)} />
+          </div>
+          {reminder && (
+            <div style={{ maxWidth: 220 }}>
+              <div className="field-label">Days Before Payment</div>
+              <div className="input"><input type="number" value={reminderDays} onChange={e => setReminderDays(e.target.value)} min={1} max={14} /></div>
+            </div>
+          )}
+        </div>
+
+        {/* 5. Failure Handling */}
+        <div className="card">
+          <div className="card-section-title">Failure Handling</div>
+          <div style={{ fontSize: 13, marginBottom: 4 }}>Automatic Retry <strong>{base.retryEnabled ? 'Enabled' : 'Disabled'}</strong></div>
+          <div style={{ fontSize: 12, color: 'var(--fta-text-4)' }}>
+            Failed payments require cardholder action. This is a fixed product rule and is not admin-configurable.
+          </div>
+        </div>
+
+        {/* 6. Audit */}
+        <div className="card">
+          <div className="card-section-title">Audit</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {auditLog.map(entry => (
+              <div key={entry.id} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, padding: '8px 0', borderBottom: '1px solid var(--fta-line-3)' }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 500 }}>{entry.action}</div>
+                  <div style={{ fontSize: 12, color: 'var(--fta-text-4)', marginTop: 2 }}>{entry.detail}</div>
+                </div>
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <div style={{ fontSize: 12, color: 'var(--fta-text-4)' }}>{entry.actor}</div>
+                  <div className="muted-2" style={{ fontSize: 11.5 }}>{entry.date}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <AutopayToastBanner message={toast} />
     </div>
   );
 }

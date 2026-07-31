@@ -1,51 +1,68 @@
 import React, { useState } from 'react';
 export { Icon, initials } from './ui/Icon';
 import { Icon } from './ui/Icon';
+import { Tabs, TabsList, TabsTrigger } from './ui/tabs';
 
-// ── Top-level tabs (topbar primary nav) ────────────────────────
+// ── Top-level tabs (topbar primary nav) ─────────────────────────
+// `routes` is the single source of truth for "which top-level module does this
+// route belong to" — every route App.jsx's switch can render MUST be listed in
+// exactly one module's `routes` array below. This is what drives the Topbar's
+// active-tab highlight (and the Sidebar's active module), so a route that's
+// missing here will silently fall back to Dashboard — see ROUTE_TO_TOPTAB.
+// Adding a new detail/create/sub-page for a module? Add its route string to
+// that module's `routes` array — do NOT add a parallel lookup table elsewhere.
 export const TOP_TABS = [
-  { id: 'dashboard',   label: 'Dashboard',              route: 'dashboard',       subTabs: null },
-  { id: 'programs',    label: 'Program',                route: 'programs',        subTabs: null },
-  { id: 'subprograms', label: 'Subprogram',             route: 'subprograms',     subTabs: null },
-  { id: 'nested',      label: 'Nested Program',         route: 'nested',          subTabs: null },
-  { id: 'cards',       label: 'Cards',                  route: 'cards',           subTabs: null },
-  { id: 'customer',    label: 'Customer',               route: 'customers',       subTabs: null },
-  { id: 'autopay',     label: 'Autopay Policy',         route: 'autopay-policy',  subTabs: [
-    { id: 'autopay-policy',     label: 'Policy' },
-    { id: 'autopay-enrollment', label: 'Enrollment' },
-    { id: 'autopay-monitoring', label: 'Execution Monitoring' },
-  ]},
-  { id: 'spend',       label: 'Spend Controls',         route: 'spend-rules',     subTabs: [
-    { id: 'spend-rules',  label: 'Rules' },
-    { id: 'spend-groups', label: 'MCC Groups' },
-    { id: 'spend-sim',    label: 'Simulation' },
-  ]},
-  { id: 'statements',  label: 'Statement & Billing',    route: 'billing-summary', subTabs: [
-    { id: 'billing-summary', label: 'Billing Summary' },
-    { id: 'statements',      label: 'Statements' },
-    { id: 'payments',        label: 'Payments' },
-  ]},
-  { id: 'transactions',label: 'Transaction Monitoring', route: 'transactions',    subTabs: [
-    { id: 'transactions', label: 'Transactions' },
-    { id: 'fraud',        label: 'Fraud Alerts' },
-  ]},
-  { id: 'dispute',     label: 'Dispute',                route: 'disputes',        subTabs: null },
+  { id: 'dashboard',   label: 'Dashboard',              route: 'dashboard',       subTabs: null,
+    routes: ['dashboard'] },
+  { id: 'programs',    label: 'Program',                route: 'programs',        subTabs: null,
+    routes: ['programs', 'program-detail', 'program-detail-subs', 'create-program'] },
+  { id: 'subprograms', label: 'Subprogram',             route: 'subprograms',     subTabs: null,
+    routes: ['subprograms', 'create-subprogram', 'subprogram-detail'] },
+  { id: 'nested',      label: 'Nested Program',         route: 'nested',          subTabs: null,
+    routes: ['nested'] },
+  { id: 'cards',       label: 'Cards',                  route: 'cards',           subTabs: null,
+    routes: ['cards', 'card-detail', 'issue-card'] },
+  { id: 'customer',    label: 'Customer',               route: 'customers',       subTabs: null,
+    routes: ['customers', 'customer-detail'] },
+  { id: 'statements',  label: 'Statement & Billing',    route: 'billing-summary', subTabs: null,
+    routes: ['billing-summary', 'statement-detail'] },
+  { id: 'payments',    label: 'Payments',               route: 'payments',        subTabs: null,
+    routes: ['payments'] },
+  { id: 'transactions',label: 'Transaction',            route: 'transactions',    subTabs: null,
+    routes: ['transactions', 'transaction-detail'] },
+  { id: 'dispute',     label: 'Dispute',                route: 'disputes',        subTabs: null,
+    routes: ['disputes', 'dispute-detail', 'create-dispute'] },
+  // Settings is a landing page of module cards (Autopay Policy, Reports) — each module
+  // owns its own in-page Breadcrumb + Tabs once entered, same as Program → Program Detail.
+  // No Topbar-level subTabs here; that's what left Autopay Policy without a return path.
+  { id: 'settings',    label: 'Settings',               route: 'settings',        subTabs: null,
+    routes: ['settings', 'autopay-policy', 'audit-logs', 'audit-log-detail'] },
 ];
 
-// route → top-tab id
+// route → top-tab id. Derived purely from each module's `routes` array above —
+// no parallel/manual override table, so there's exactly one place to update
+// when a module gains a new route.
 export const ROUTE_TO_TOPTAB = {};
 TOP_TABS.forEach(t => {
-  ROUTE_TO_TOPTAB[t.route] = t.id;
-  (t.subTabs || []).forEach(s => { ROUTE_TO_TOPTAB[s.id] = t.id; });
+  (t.routes || [t.route]).forEach(r => { ROUTE_TO_TOPTAB[r] = t.id; });
 });
-Object.assign(ROUTE_TO_TOPTAB, {
-  'program-detail':'programs', 'program-detail-subs':'programs', 'create-program':'programs',
-  'create-subprogram':'subprograms', 'subprogram-detail':'subprograms',
-  'nested':'subprograms', 'create-card':'subprograms', 'issue-card':'cards',
-  'customer-detail':'customer',
-  'statement-detail':'statements',
-  'dispute-detail':'dispute',
-});
+
+if (import.meta.env.DEV) {
+  const allSwitchRoutes = [
+    'dashboard', 'programs', 'program-detail', 'program-detail-subs', 'create-program',
+    'create-subprogram', 'subprograms', 'nested', 'subprogram-detail', 'issue-card',
+    'cards', 'card-detail', 'customers', 'customer-detail',
+    'autopay-policy',
+    'billing-summary', 'statement-detail', 'payments',
+    'transactions', 'transaction-detail', 'disputes', 'dispute-detail', 'create-dispute',
+    'settings', 'audit-logs', 'audit-log-detail',
+  ];
+  const unmapped = allSwitchRoutes.filter(r => !ROUTE_TO_TOPTAB[r]);
+  if (unmapped.length) {
+    // eslint-disable-next-line no-console
+    console.warn('[nav] Routes rendered by App.jsx but missing from TOP_TABS routes[] — they will fall back to Dashboard in the top nav:', unmapped);
+  }
+}
 
 // Backward-compat aliases used elsewhere in the app
 export const ROUTE_TO_TAB    = ROUTE_TO_TOPTAB;
@@ -62,8 +79,10 @@ export function Topbar({ route, navigate }) {
   const activeTab = TOP_TABS.find(t => t.id === topTabId) || TOP_TABS[0];
   const subTabs   = activeTab.subTabs;
 
+  const hasSubTabs = subTabs && subTabs.length > 1;
+
   return (
-    <header className="topbar" data-screen-label="Topbar">
+    <header className="topbar" data-screen-label="Topbar" style={hasSubTabs ? { borderBottom: 'none' } : undefined}>
       <div className="topbar-main">
         <div className="topbar-section-label">Card Issuance</div>
         <nav className="topbar-tabs" aria-label="Section tabs">
@@ -92,26 +111,38 @@ export function Topbar({ route, navigate }) {
           <div className="topbar-avatar" title="Admin User">AD</div>
         </div>
       </div>
-      {subTabs && subTabs.length > 1 && (
-        <nav className="topbar-subtabs" aria-label="Sub-section tabs">
-          {subTabs.map(s => (
-            <button
-              key={s.id}
-              className={'topbar-subtab' + (route === s.id ? ' --active' : '')}
-              onClick={() => navigate(s.id)}
-              aria-current={route === s.id ? 'page' : undefined}
-            >
-              {s.label}
-            </button>
-          ))}
-        </nav>
+      {hasSubTabs && (
+        <div className="topbar-subtabs" aria-label="Sub-section tabs">
+          <div style={{ maxWidth: 1440, margin: '0 auto', width: '100%', paddingBottom: 12 }}>
+            <Tabs value={route} onValueChange={id => navigate(id)}>
+              <TabsList style={{ height: 46 }}>
+                {subTabs.map(s => (
+                  <TabsTrigger key={s.id} value={s.id} style={{ paddingLeft: 16, paddingRight: 16 }}>
+                    {s.icon && <Icon name={s.icon} className="ico" size={14} />}
+                    {s.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+          </div>
+        </div>
       )}
     </header>
   );
 }
 
 // ── Sidebar ────────────────────────────────────────────────────
-export function Sidebar({ collapsed, onToggle, navigate }) {
+// Every TOP_TABS module currently belongs to the single "Card Issuance" app, so
+// this always resolves active — but it's derived from the same ROUTE_TO_TOPTAB
+// source of truth as the Topbar, not hardcoded, so a second sidebar app added
+// later composes correctly instead of needing its own bespoke active check.
+const SIDEBAR_APPS = [
+  { id: 'card-issuance', label: 'Card Issuance', icon: 'card', route: 'dashboard', moduleIds: TOP_TABS.map(t => t.id) },
+];
+
+export function Sidebar({ collapsed, onToggle, navigate, route }) {
+  const currentModule = ROUTE_TO_TOPTAB[route] || 'dashboard';
+
   return (
     <aside className="sidebar" aria-label="Main navigation">
       <div className="sidebar-logo">
@@ -139,27 +170,20 @@ export function Sidebar({ collapsed, onToggle, navigate }) {
         </div>
       )}
       <nav className="sidebar-nav">
+        {SIDEBAR_APPS.map(app => (
         <button
-          className="sidebar-nav-item --active"
-          title="Card Issuance"
-          onClick={() => navigate('dashboard')}
+          key={app.id}
+          className={'sidebar-nav-item' + (app.moduleIds.includes(currentModule) ? ' --active' : '')}
+          title={app.label}
+          onClick={() => navigate(app.route)}
         >
-          <Icon name="card" className="ico" size={15} />
-          {!collapsed && <span className="lbl">Card Issuance</span>}
+          <Icon name={app.icon} className="ico" size={15} />
+          {!collapsed && <span className="lbl">{app.label}</span>}
         </button>
-        <div className="sidebar-divider" role="separator" />
-        {[
-          { id: 'reports',  label: 'Reports',  icon: 'list' },
-          { id: 'settings', label: 'Settings', icon: 'settings' },
-        ].map(n => (
-          <button key={n.id} className="sidebar-nav-item" title={n.label}>
-            <Icon name={n.icon} className="ico" size={15} />
-            {!collapsed && <span className="lbl">{n.label}</span>}
-          </button>
         ))}
       </nav>
       <div className="sidebar-help" role="button" tabIndex={0}>
-        <Icon name="help-circle" size={14} />
+        <Icon name="help-circle" size={15} />
         {!collapsed && <span>Help & Support</span>}
       </div>
     </aside>

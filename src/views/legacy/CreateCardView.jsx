@@ -1,6 +1,8 @@
+// UNUSED — archived under Scheme A (Program → Sub-program → Issued Card).
+// Card product configuration lives on the sub-program; use IssueCardView to issue cards.
 import React, { useState } from 'react';
-import { Icon } from '../components/Shell';
-import AppData from '../data/AppData';
+import { Icon } from '../../components/Shell';
+import AppData from '../../data/AppData';
 
 const STEPS = ['General Information', 'Card Configuration', 'Review & Create'];
 

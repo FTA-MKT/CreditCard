@@ -1,19 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Sidebar, Topbar } from './components/Shell';
+import { Sidebar, Topbar, TOP_TABS, ROUTE_TO_TOPTAB } from './components/Shell';
 import { useTweaks, TweaksPanel, TweakSection, TweakRadio, TweakColor } from './components/TweaksPanel';
 import DashboardView from './views/DashboardView';
 import ProgramsView from './views/ProgramsView';
 import CustomersView from './views/CustomersView';
 import DisputesView from './views/DisputesView';
-import { SubProgramsView, NestedProgramView, CardsView, TransactionsView, FraudView } from './views/OtherViews';
+import { SubProgramsView, NestedProgramView, CardsView, TransactionsView } from './views/OtherViews';
 import AutopayView from './views/AutopayView';
-import SpendView from './views/SpendView';
 import StatementsView from './views/StatementsView';
+import SettingsView from './views/SettingsView';
 import CreateProgramView from './views/CreateProgramView';
 import CreateSubProgramView from './views/CreateSubProgramView';
-import CreateCardView from './views/CreateCardView';
 import IssueCardView from './views/IssueCardView';
 import CardDetailView from './views/CardDetailView';
+import CreateDisputeView from './views/CreateDisputeView';
+import AuditLogsView from './views/AuditLogsView';
 
 const TWEAK_DEFAULTS = {
   accent: '#1634A4',
@@ -40,6 +41,18 @@ export default function App() {
   function navigate(r, p = null) {
     setRoute(r);
     setParam(p);
+    if (import.meta.env.DEV) {
+      const moduleId = ROUTE_TO_TOPTAB[r] || 'dashboard';
+      const moduleTab = TOP_TABS.find(t => t.id === moduleId);
+      // eslint-disable-next-line no-console
+      console.log('[nav]', {
+        'Current Route': r,
+        'Current Module': moduleId,
+        'Active Sidebar': 'card-issuance',
+        'Active Tab': moduleTab?.label,
+        'Parent Navigation': moduleTab?.route,
+      });
+    }
     setTimeout(() => {
       const el = document.querySelector('.content');
       if (el) el.scrollTop = 0;
@@ -57,26 +70,23 @@ export default function App() {
       case 'subprograms':                     return <SubProgramsView navigate={navigate} />;
       case 'nested':
       case 'subprogram-detail':               return <NestedProgramView navigate={navigate} navParam={param} />;
-      case 'create-card':                     return <CreateCardView navigate={navigate} navParam={param} />;
       case 'issue-card':                      return <IssueCardView navigate={navigate} navParam={param} />;
       case 'cards':                           return <CardsView navigate={navigate} />;
       case 'card-detail':                     return <CardDetailView navigate={navigate} navParam={param} />;
       case 'customers':
       case 'customer-detail':                 return <CustomersView navigate={navigate} navParam={param} />;
-      case 'autopay-policy':
-      case 'autopay-enrollment':
-      case 'autopay-monitoring':              return <AutopayView route={route} navigate={navigate} />;
-      case 'spend-rules':
-      case 'spend-groups':
-      case 'spend-sim':                       return <SpendView route={route} navigate={navigate} />;
+      case 'autopay-policy':                  return <AutopayView navigate={navigate} />;
       case 'billing-summary':
-      case 'statements':
       case 'statement-detail':
       case 'payments':                        return <StatementsView route={route} navigate={navigate} navParam={param} />;
-      case 'transactions':                    return <TransactionsView navigate={navigate} />;
-      case 'fraud':                           return <FraudView navigate={navigate} />;
+      case 'transactions':
+      case 'transaction-detail':               return <TransactionsView navigate={navigate} navParam={param} />;
       case 'disputes':
       case 'dispute-detail':                  return <DisputesView navigate={navigate} navParam={param} />;
+      case 'create-dispute':                  return <CreateDisputeView navigate={navigate} />;
+      case 'settings':                        return <SettingsView navigate={navigate} />;
+      case 'audit-logs':
+      case 'audit-log-detail':                return <AuditLogsView navigate={navigate} navParam={param} />;
       default:                               return <DashboardView navigate={navigate} />;
     }
   })();

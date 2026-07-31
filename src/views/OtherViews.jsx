@@ -1,13 +1,19 @@
 import React, { useState } from 'react';
 import { Icon, StatusPill, Breadcrumb } from '../components/Shell';
-import { ColorAvatar, FilterField, Field, Pager, NetworkMark, SmallStat } from '../components/shared';
+import { ColorAvatar, FilterField, Field, Pager, NetworkMark, SmallStat, ProgramLogo } from '../components/shared';
 import AppData from '../data/AppData';
-import { LayoutGrid, List, Plus, Search } from 'lucide-react';
+import { LayoutGrid, List, Plus, Search, MoreVertical } from 'lucide-react';
 import { Button } from '../components/ui/button';
-import { TableCell, TableHead, TableHeader, TableRow, TableActionHead, TableActionCell } from '../components/ui/table';
+import { Badge } from '../components/ui/badge';
+import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableActionHead, TableActionCell } from '../components/ui/table';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '../components/ui/dropdown-menu';
 import { useDataTableState } from '../components/business/data-display/useDataTableControls';
 import { StandardDataTable } from '../components/business/data-display/StandardDataTable';
+import { DataTableWorkbench, DataTableFilters, DataTableFilterField, DataTableFilterLabel } from '../components/business/data-display/DataTableWorkbench';
 import { DataTableEmptyStateRow } from '../components/business/data-display/DataTableEmptyState';
+import { DataTableFilterActions } from '../components/business/data-display/DataTableFilterActions';
+import { ArtworkDetailBlock } from '../components/forms/ArtworkPreview';
 
 export function SubProgramsView({ navigate }) {
   const [statusFilter, setStatusFilter] = useState('');
@@ -224,6 +230,249 @@ function FormFactorTag({ type, formFactors }) {
   return <span style={{ color: 'var(--fta-text-3)' }}>—</span>;
 }
 
+// ── Nested Program List ──────────────────────────────────────────
+function ToastBanner({ message }) {
+  if (!message) return null;
+  return (
+    <div style={{
+      position: 'fixed', bottom: 24, right: 24, zIndex: 999,
+      background: 'var(--fta-text-5)', color: '#fff', padding: '10px 16px',
+      borderRadius: 8, fontSize: 13, fontWeight: 500, boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
+    }}>
+      {message}
+    </div>
+  );
+}
+
+function useToast() {
+  const [toast, setToast] = useState(null);
+  function showToast(message) {
+    setToast(message);
+    setTimeout(() => setToast(null), 1800);
+  }
+  return [toast, showToast];
+}
+
+const NESTED_STATUS_BADGE_VARIANT = {
+  Active: 'success',
+  Inactive: 'secondary',
+  'Under Review': 'warning',
+};
+
+function NestedProgramStatusBadge({ status }) {
+  return <Badge variant={NESTED_STATUS_BADGE_VARIANT[status] || 'secondary'}>{status}</Badge>;
+}
+
+function MerchantIdTags({ ids, max = 3 }) {
+  const shown = ids.slice(0, max);
+  const rest = ids.length - shown.length;
+  const tagStyle = { fontSize: 11.5, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: '#f1f5f9', color: 'var(--fta-text-4)' };
+  return (
+    <span style={{ display: 'inline-flex', flexWrap: 'wrap', gap: 6 }}>
+      {shown.map(id => <span key={id} style={tagStyle}>{id}</span>)}
+      {rest > 0 && <span style={tagStyle}>+{rest}</span>}
+    </span>
+  );
+}
+
+function mapNestedProgram(sub, statusOverride) {
+  return {
+    id: sub.id,
+    name: sub.name || 'Demo Nested Program Name',
+    status: statusOverride || sub.status || 'Active',
+    accountName: sub.accountName || sub.financialProductSnapshot?.name || 'Finbank Saving Account 2222',
+    validThrough: sub.validThrough || '07/03/2024 - 10/01/2024',
+    merchantIds: sub.merchantIds || ['5546111', '5546333', '5546123', '5546128', '5546199', '5546201'],
+  };
+}
+
+function NestedProgramListView({ navigate }) {
+  const [viewMode, setViewMode] = useState('grid');
+  const [statusOverrides, setStatusOverrides] = useState({});
+  const [toast, showToast] = useToast();
+
+  const data = AppData.subPrograms.map(sub => mapNestedProgram(sub, statusOverrides[sub.id]));
+
+  const state = useDataTableState({
+    data,
+    initialFilters: { status: '' },
+    searchPredicate: (item, q) =>
+      item.name.toLowerCase().includes(q) ||
+      item.accountName.toLowerCase().includes(q) ||
+      item.status.toLowerCase().includes(q) ||
+      item.merchantIds.some(m => m.toLowerCase().includes(q)),
+    filterPredicate: (item, filters) => !filters.status || item.status === filters.status,
+  });
+
+  function handleReset() {
+    state.setSearch('');
+    state.resetFilters();
+  }
+
+  function toggleStatus(item) {
+    const next = item.status === 'Inactive' ? 'Active' : 'Inactive';
+    setStatusOverrides(prev => ({ ...prev, [item.id]: next }));
+    showToast(next === 'Active' ? 'Nested program activated' : 'Nested program deactivated');
+  }
+
+  const actions = (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <Button
+        variant={viewMode === 'grid' ? 'outline' : 'ghost'}
+        size="icon-sm"
+        title="Grid view"
+        onClick={() => setViewMode('grid')}
+      >
+        <LayoutGrid size={15} />
+      </Button>
+      <Button
+        variant={viewMode === 'list' ? 'outline' : 'ghost'}
+        size="icon-sm"
+        title="List view"
+        onClick={() => setViewMode('list')}
+      >
+        <List size={15} />
+      </Button>
+      <Button onClick={() => showToast('Create nested program flow is not available in this prototype')}>
+        <Plus size={14} />
+        Create Nested Program
+      </Button>
+    </div>
+  );
+
+  const searchProps = {
+    value: state.search,
+    onChange: state.setSearch,
+    placeholder: 'Search name, account, merchant ID',
+  };
+
+  const footerProps = {
+    totalLabel: `Total ${state.totalRows} items`,
+    currentPage: state.safeCurrentPage,
+    totalPages: state.totalPages,
+    pageItems: state.pageItems,
+    onPageChange: state.setCurrentPage,
+    pageSize: { value: state.pageSize, onValueChange: state.setPageSize, options: ['10', '20', '50'] },
+    goTo: { value: state.goToValue, onValueChange: state.setGoToValue, onCommit: state.commitGoTo },
+  };
+
+  return (
+    <div className="content-inner fade-in">
+      <div>
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16 }}>
+          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--fta-text-4)' }}>Status</span>
+              <div className="select" style={{ width: 180 }}>
+                <select value={state.filters.status} onChange={e => state.setFilter('status', e.target.value)}>
+                  <option value="">All Status</option>
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                  <option value="Under Review">Under Review</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn btn-ghost btn-sm" onClick={handleReset}>Reset</button>
+            <button className="btn btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={() => showToast('Filters applied.')}>
+              <Search size={13} />Search
+            </button>
+          </div>
+        </div>
+        <div style={{ height: 1, background: 'var(--border)', marginTop: 16 }} />
+      </div>
+
+      {viewMode === 'grid' ? (
+        <DataTableWorkbench title="Nested Program List" search={searchProps} actions={actions} surfaceVariant="embedded" {...footerProps}>
+          <div className="grid-3">
+            {state.pageRows.length === 0 ? (
+              <div style={{ gridColumn: '1 / -1', textAlign: 'center', color: 'var(--fta-text-3)', padding: 40 }}>
+                No nested programs match the current filters.
+              </div>
+            ) : state.pageRows.map(item => (
+              <div
+                key={item.id}
+                className="card"
+                style={{ position: 'relative' }}
+              >
+                <div style={{ position: 'absolute', top: 14, right: 14, color: 'var(--fta-text-3)' }}>
+                  <MoreVertical size={16} />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, paddingRight: 24 }}>
+                  <span style={{ fontWeight: 600, fontSize: 15, color: 'var(--fta-text-5)' }}>{item.name}</span>
+                  <NestedProgramStatusBadge status={item.status} />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                  <ProgramLogo size={22} />
+                  <span style={{ fontSize: 13, color: 'var(--fta-text-4)' }}>{item.accountName}</span>
+                </div>
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--fta-text-3)', marginBottom: 4 }}>VALID THROUGH</div>
+                  <div style={{ fontSize: 13 }}>{item.validThrough}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--fta-text-3)', marginBottom: 4 }}>MERCHANT ID</div>
+                  <MerchantIdTags ids={item.merchantIds} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </DataTableWorkbench>
+      ) : (
+        <StandardDataTable
+          title="Nested Program List"
+          search={searchProps}
+          actions={actions}
+          state={state}
+          showGoTo
+          tableProps={{ widthBehavior: 'fill', showColumnBorders: false }}
+          header={
+            <TableHeader>
+              <TableRow>
+                <TableHead columnId="np-name">Nested Program Name</TableHead>
+                <TableHead columnId="np-merchant">Merchant ID</TableHead>
+                <TableHead columnId="np-status">Status</TableHead>
+                <TableHead columnId="np-accounts">Accounts</TableHead>
+                <TableHead columnId="np-valid">Valid Through</TableHead>
+                <TableActionHead />
+              </TableRow>
+            </TableHeader>
+          }
+          renderRows={(tableState) =>
+            tableState.pageRows.map(item => (
+              <TableRow key={item.id}>
+                <TableCell>
+                  <span style={{ fontWeight: 500 }}>{item.name}</span>
+                </TableCell>
+                <TableCell><MerchantIdTags ids={item.merchantIds} /></TableCell>
+                <TableCell><SubStatusDot status={item.status} /></TableCell>
+                <TableCell>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                    <ProgramLogo size={24} />{item.accountName}
+                  </span>
+                </TableCell>
+                <TableCell className="text-muted-foreground">{item.validThrough}</TableCell>
+                <TableActionCell>
+                  <button
+                    className="text-sm text-primary hover:underline whitespace-nowrap"
+                    onClick={(e) => { e.stopPropagation(); toggleStatus(item); }}
+                  >
+                    {item.status === 'Inactive' ? 'Activate' : 'Deactivate'}
+                  </button>
+                </TableActionCell>
+              </TableRow>
+            ))
+          }
+          emptyState={<DataTableEmptyStateRow colSpan={6} />}
+        />
+      )}
+
+      <ToastBanner message={toast} />
+    </div>
+  );
+}
+
 export function NestedProgramView({ navigate, navParam }) {
   const subId      = navParam && typeof navParam === 'object' ? navParam.id   : navParam;
   const from       = navParam && typeof navParam === 'object' ? navParam.from : 'program';
@@ -232,13 +481,7 @@ export function NestedProgramView({ navigate, navParam }) {
   const [tab, setTab] = useState(initialTab);
 
   const sub = AppData.subPrograms.find(s => s.id === subId);
-  if (!sub) return (
-    <div className="content-inner fade-in">
-      <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--fta-text-3)' }}>
-        Sub-program not found.
-      </div>
-    </div>
-  );
+  if (!sub) return <NestedProgramListView navigate={navigate} />;
 
   const parentProgram = sub.programId ? AppData.programs.find(p => p.id === sub.programId) : null;
 
@@ -264,7 +507,7 @@ export function NestedProgramView({ navigate, navParam }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--fta-primary-6)', textTransform: 'uppercase', letterSpacing: '.5px', minWidth: 100 }}>Parent Program</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
-              <span style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--fta-text-1)', cursor: 'pointer', textDecoration: 'underline', textDecorationColor: 'transparent' }}
+              <span style={{ fontWeight: 600, fontSize: 13.5, color: '#333333', cursor: 'pointer', textDecoration: 'underline', textDecorationColor: 'transparent' }}
                 onMouseEnter={e => e.target.style.textDecorationColor = 'currentColor'}
                 onMouseLeave={e => e.target.style.textDecorationColor = 'transparent'}
                 onClick={() => navigate('program-detail-subs', parentProgram.id)}>
@@ -278,17 +521,13 @@ export function NestedProgramView({ navigate, navParam }) {
       )}
 
       {/* ── Internal tabs ── */}
-      <div className="tabpills">
-        <button className={'tabpill' + (tab === 'details' ? ' --active' : '')} onClick={() => setTab('details')}>
-          <Icon name="list" className="ico" />Sub-program Details
-        </button>
-        <button className={'tabpill' + (tab === 'cards' ? ' --active' : '')} onClick={() => setTab('cards')}>
-          <Icon name="card" className="ico" />Cards
-        </button>
-        <button className={'tabpill' + (tab === 'files' ? ' --active' : '')} onClick={() => setTab('files')}>
-          <Icon name="file" className="ico" />Files
-        </button>
-      </div>
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList className="h-9">
+          <TabsTrigger value="details"><Icon name="list" className="ico" />Sub-program Details</TabsTrigger>
+          <TabsTrigger value="cards"><Icon name="card" className="ico" />Cards</TabsTrigger>
+          <TabsTrigger value="files"><Icon name="file" className="ico" />Files</TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       {/* ── Details tab ── */}
       {tab === 'details' && (
@@ -325,38 +564,65 @@ export function NestedProgramView({ navigate, navParam }) {
             </div>
           </div>
 
-          {/* Financial Account + Credit Settings */}
+          {/* Financial Product + Credit Terms */}
           {(() => {
-            const snap = sub.financialAccountSnapshot
-              ?? (sub.financialAccountId ? AppData.financialAccounts.find(a => a.id === sub.financialAccountId) ?? null : null);
+            // Priority: new financialProductSnapshot → new id lookup → old financialAccountSnapshot → old id lookup
+            const snap = sub.financialProductSnapshot
+              ?? (sub.financialProductId ? AppData.financialProducts.find(a => a.id === sub.financialProductId) ?? null : null)
+              ?? sub.financialAccountSnapshot
+              ?? (sub.financialAccountId ? AppData.financialProducts.find(a => a.id === sub.financialAccountId) ?? null : null);
             const hasLegacy = sub.creditMin || sub.creditMax || sub.purchaseApr || sub.billingCycle || sub.gracePeriod;
             const cs = snap ?? (hasLegacy ? sub : null);
+            const productType = snap ? (snap.productType ?? snap.type ?? '—') : null;
             return (
               <div className="card">
-                <div className="card-section-title">Financial Account</div>
+                <div className="card-section-title">Financial Product</div>
                 <div className="grid-2" style={{ marginBottom: 16 }}>
-                  <Field label="Name"     value={snap ? snap.name     : 'Not configured'} />
-                  <Field label="Type"     value={snap ? snap.type     : 'Not configured'} />
+                  <Field label="Product Name" value={snap ? snap.name        : 'Not configured'} />
+                  <Field label="Product Type" value={snap ? productType      : 'Not configured'} />
                 </div>
                 <div className="grid-2" style={{ marginBottom: cs ? 16 : 0 }}>
                   <Field label="Currency" value={snap ? snap.currency : 'Not configured'} />
                 </div>
                 {cs && (
                   <>
-                    <div className="card-section-title" style={{ marginTop: 8 }}>Credit Settings</div>
+                    <div className="card-section-title" style={{ marginTop: 8 }}>Credit Terms</div>
                     <div className="grid-2" style={{ marginBottom: 16 }}>
-                      <Field label="Credit Limit (Min)" value={cs.creditMin ? `$ ${Number(cs.creditMin).toLocaleString()}` : '—'} />
-                      <Field label="Credit Limit (Max)" value={cs.creditMax ? `$ ${Number(cs.creditMax).toLocaleString()}` : '—'} />
+                      <Field label="Credit Limit Range (Min, USD)" value={cs.creditMin ? `$ ${Number(cs.creditMin).toLocaleString()}` : '—'} />
+                      <Field label="Credit Limit Range (Max, USD)" value={cs.creditMax ? `$ ${Number(cs.creditMax).toLocaleString()}` : '—'} />
                     </div>
                     <div className="grid-2" style={{ marginBottom: 16 }}>
-                      <Field label="Purchase APR"  value={cs.purchaseApr  ? `${cs.purchaseApr}%` : '—'} />
+                      <Field label="Purchase APR (%)"  value={cs.purchaseApr  ? `${cs.purchaseApr}%` : '—'} />
                       <Field label="Billing Cycle" value={cs.billingCycle || '—'} />
                     </div>
                     <div className="grid-2">
-                      <Field label="Grace Period" value={cs.gracePeriod ? `${cs.gracePeriod} days` : '—'} />
+                      <Field label="Grace Period (days)" value={cs.gracePeriod ? `${cs.gracePeriod} days` : '—'} />
                     </div>
                   </>
                 )}
+              </div>
+            );
+          })()}
+
+          {(() => {
+            const fmtLimit = (entry) => (entry && entry.enabled && entry.amount)
+              ? `${entry.currency || 'USD'} ${Number(entry.amount).toLocaleString()}`
+              : 'Not configured';
+            const l = sub.limits || {};
+            return (
+              <div className="card">
+                <div className="card-section-title">Spending Limits</div>
+                <div className="grid-2" style={{ marginBottom: 16 }}>
+                  <Field label="Per-Transaction Limit" value={fmtLimit(l.perTxn)} />
+                  <Field label="Daily Limit" value={fmtLimit(l.daily)} />
+                </div>
+                <div className="grid-2" style={{ marginBottom: 16 }}>
+                  <Field label="Weekly Limit" value={fmtLimit(l.weekly)} />
+                  <Field label="Monthly Limit" value={fmtLimit(l.monthly)} />
+                </div>
+                <div className="grid-2">
+                  <Field label="ATM Limit" value={fmtLimit(l.atm)} />
+                </div>
               </div>
             );
           })()}
@@ -376,22 +642,8 @@ export function NestedProgramView({ navigate, navParam }) {
           <div className="card">
             <div className="card-section-title">Card Artwork &amp; Production</div>
             <div className="grid-2" style={{ marginBottom: 16 }}>
-              <div>
-                <div style={{ fontSize: 12, color: 'var(--fta-text-3)', marginBottom: 6 }}>Card Front Artwork</div>
-                {sub.cardFrontArtwork?.previewUrl && sub.cardFrontArtwork.fileType !== 'image/svg+xml'
-                  ? <img src={sub.cardFrontArtwork.previewUrl} alt="front" style={{ maxHeight: 80, maxWidth: '100%', borderRadius: 6, border: '1px solid var(--fta-line-2)' }} />
-                  : <div style={{ fontSize: 13, color: 'var(--fta-text-3)', fontStyle: 'italic' }}>{sub.cardFrontArtwork ? sub.cardFrontArtwork.fileName : 'Not configured'}</div>
-                }
-                {sub.cardFrontArtwork?.width && <div style={{ fontSize: 11.5, color: 'var(--fta-text-4)', marginTop: 4 }}>{sub.cardFrontArtwork.width} × {sub.cardFrontArtwork.height} px</div>}
-              </div>
-              <div>
-                <div style={{ fontSize: 12, color: 'var(--fta-text-3)', marginBottom: 6 }}>Card Back Artwork</div>
-                {sub.cardBackArtwork?.previewUrl && sub.cardBackArtwork.fileType !== 'image/svg+xml'
-                  ? <img src={sub.cardBackArtwork.previewUrl} alt="back" style={{ maxHeight: 80, maxWidth: '100%', borderRadius: 6, border: '1px solid var(--fta-line-2)' }} />
-                  : <div style={{ fontSize: 13, color: 'var(--fta-text-3)', fontStyle: 'italic' }}>{sub.cardBackArtwork ? sub.cardBackArtwork.fileName : 'Not configured'}</div>
-                }
-                {sub.cardBackArtwork?.width && <div style={{ fontSize: 11.5, color: 'var(--fta-text-4)', marginTop: 4 }}>{sub.cardBackArtwork.width} × {sub.cardBackArtwork.height} px</div>}
-              </div>
+              <ArtworkDetailBlock artwork={sub.cardFrontArtwork} label="Card Front Artwork" />
+              <ArtworkDetailBlock artwork={sub.cardBackArtwork} label="Card Back Artwork" />
             </div>
             <div className="grid-2" style={{ marginBottom: 16 }}>
               <Field label="Card Material" value={v(sub.cardMaterial)} />
@@ -404,7 +656,7 @@ export function NestedProgramView({ navigate, navParam }) {
             {sub.cardTotalPrice != null && (
               <div style={{ marginTop: 16, padding: '10px 14px', background: 'var(--fta-fill-2)', borderRadius: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--fta-text-3)' }}>Estimated Total</span>
-                <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--fta-text-1)' }}>${Number(sub.cardTotalPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--fta-text-5)' }}>${Number(sub.cardTotalPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
             )}
           </div>
@@ -433,7 +685,7 @@ export function NestedProgramView({ navigate, navParam }) {
                       ].map(([label, val]) => (
                         <div key={label}>
                           <div style={{ fontSize: 11, color: 'var(--fta-text-3)', marginBottom: 2 }}>{label}</div>
-                          <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--fta-text-1)' }}>{val || '—'}</div>
+                          <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--fta-text-5)' }}>{val || '—'}</div>
                         </div>
                       ))}
                     </div>
@@ -458,6 +710,119 @@ export function NestedProgramView({ navigate, navParam }) {
               </div>
             );
           })()}
+
+          <div className="card">
+            <div className="card-section-title">Rewards Program</div>
+            {(() => {
+              const config = AppData.rewardsConfigurations?.find(c => c.subprogramId === sub.id);
+              const prog = config || (sub.rewardsEnabled ? sub.rewardsProgram : null);
+              const isNewSchema = !!(prog?.programName);
+
+              if (!prog) {
+                return <div style={{ fontSize: 13, color: 'var(--fta-text-3)' }}>Rewards not enabled for this sub-program.</div>;
+              }
+
+              if (isNewSchema) {
+                const timingLabel = prog.postingTiming === 'after_clearing' ? 'After transaction clearing'
+                  : prog.postingTiming === 'after_statement' ? 'After statement generation'
+                  : prog.postingTiming === 'settlement' ? 'After transaction clearing'
+                  : prog.postingTiming === 'billing_cycle' ? 'After statement generation'
+                  : prog.postingTiming || '—';
+                const accrualLabel = prog.accrualBasis === 'purchase_based' ? 'Purchase based'
+                  : prog.accrualBasis === 'payment_based' ? 'Payment based' : null;
+                const baseRate = prog.baseEarningRate?.value ?? prog.baseEarningRule?.multiplier ?? 1;
+                const earningRules = prog.earningRules ?? prog.bonusEarningRules ?? [];
+                let scEnabled = false, conversionDisplay = '—', minIncrementDisplay = '—';
+                if (Array.isArray(prog.redemptionMethods)) {
+                  const sc = prog.redemptionMethods.find(m => m.type === 'statement_credit' && m.enabled);
+                  scEnabled = !!sc;
+                  if (sc?.conversion) conversionDisplay = `${sc.conversion.points.toLocaleString()} pts = $${sc.conversion.amount.toFixed(2)} ${sc.conversion.currency || 'USD'}`;
+                  if (sc?.minimumIncrement) minIncrementDisplay = `Every ${sc.minimumIncrement.toLocaleString()} pts`;
+                } else if (prog.redemptionMethods?.statementCredit) {
+                  scEnabled = prog.redemptionMethods.statementCredit.enabled;
+                  if (prog.conversionRate != null) conversionDisplay = `1 pt = $${Number(prog.conversionRate).toFixed(2)}`;
+                  if (prog.minimumRedemptionIncrement != null) minIncrementDisplay = `Every ${Number(prog.minimumRedemptionIncrement).toLocaleString()} pts`;
+                }
+                return (
+                  <>
+                    <div className="grid-2" style={{ marginBottom: 16 }}>
+                      <Field label="Program Name" value={prog.programName || '—'} />
+                      <Field label="Posting Timing" value={timingLabel} />
+                    </div>
+                    {accrualLabel && (
+                      <div style={{ marginBottom: 16 }}>
+                        <Field label="Accrual Basis" value={accrualLabel} />
+                      </div>
+                    )}
+                    <div style={{ marginBottom: 16 }}>
+                      <div style={{ fontSize: 11, color: 'var(--fta-text-3)', marginBottom: 8, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.5px' }}>Earning Rules</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: 'var(--fta-fill-2)', borderRadius: 6, marginBottom: 6, fontSize: 13 }}>
+                        <span style={{ fontWeight: 700, minWidth: 32, color: 'var(--fta-primary-6)' }}>{baseRate}×</span>
+                        <span>Base — All eligible purchases</span>
+                        <span style={{ fontSize: 11, color: 'var(--fta-text-3)' }}>({baseRate}x points per $1)</span>
+                      </div>
+                      {earningRules.map(rule => (
+                        <div key={rule.id || rule.category || rule.name} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: 'var(--fta-fill-2)', borderRadius: 6, marginBottom: 6, fontSize: 13 }}>
+                          <span style={{ fontWeight: 700, minWidth: 32, color: 'var(--fta-primary-6)' }}>{rule.multiplier}×</span>
+                          <span style={{ fontWeight: 500 }}>{rule.name || rule.category}</span>
+                          {rule.mccCodes?.length > 0 && (
+                            <span style={{ fontSize: 11, color: 'var(--fta-text-3)', marginLeft: 4 }}>MCC: {rule.mccCodes.join(', ')}</span>
+                          )}
+                        </div>
+                      ))}
+                      {!earningRules.length && (
+                        <div style={{ fontSize: 12, color: 'var(--fta-text-3)', paddingLeft: 4 }}>No bonus categories configured.</div>
+                      )}
+                    </div>
+                    <div style={{ marginBottom: 16 }}>
+                      <div style={{ fontSize: 11, color: 'var(--fta-text-3)', marginBottom: 8, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.5px' }}>Redemption Methods</div>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {scEnabled && <span style={{ fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 10, background: 'var(--fta-primary-1)', color: 'var(--fta-primary-7)' }}>Statement Credit</span>}
+                        {!scEnabled && <span style={{ fontSize: 12, color: 'var(--fta-text-3)' }}>—</span>}
+                      </div>
+                    </div>
+                    <div className="grid-2">
+                      <Field label="Conversion Rate" value={conversionDisplay} />
+                      <Field label="Minimum Redemption" value={minIncrementDisplay} />
+                    </div>
+                  </>
+                );
+              }
+
+              // Legacy schema fallback
+              return (
+                <>
+                  <div className="grid-2" style={{ marginBottom: 16 }}>
+                    <Field label="Reward Name" value={prog.name || '—'} />
+                    <Field label="Reward Type" value={prog.type || '—'} />
+                  </div>
+                  {prog.description && (
+                    <div style={{ marginBottom: 16 }}>
+                      <Field label="Description" value={prog.description} />
+                    </div>
+                  )}
+                  <div className="grid-2" style={{ marginBottom: 16 }}>
+                    <Field label="Earn Rate" value={prog.earnRate || '—'} />
+                    <Field label="Spend Rule" value={prog.spendRule || '—'} />
+                  </div>
+                  <div className="grid-2" style={{ marginBottom: 16 }}>
+                    <Field label="Reward Period" value={prog.period || '—'} />
+                    <Field label="Event Rule" value={prog.eventRule || '—'} />
+                  </div>
+                  {prog.mccRules?.length > 0 && (
+                    <div style={{ marginBottom: 16 }}>
+                      <Field label="MCC Rules" value={prog.mccRules.join(', ')} />
+                    </div>
+                  )}
+                  <div className="grid-2" style={{ marginBottom: 16 }}>
+                    <Field label="Redemption Options" value={prog.redemptionOptions?.join(', ') || '—'} />
+                    <Field label="Redemption Threshold" value={prog.redemptionThreshold || '—'} />
+                  </div>
+                  {prog.pointsExpiry && <Field label="Points Expiry" value={prog.pointsExpiry} />}
+                </>
+              );
+            })()}
+          </div>
         </>
       )}
 
@@ -497,7 +862,7 @@ function SubCardsTab({ sub, navigate, program }) {
     return matchSearch && matchStatus;
   });
 
-  function handleCreateCard() {
+  function handleIssueCard() {
     navigate('issue-card', { programId: sub.programId, subprogramId: sub.id, from: 'subprogram-cards' });
   }
 
@@ -551,15 +916,15 @@ function SubCardsTab({ sub, navigate, program }) {
               <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="1" y="2" width="13" height="2" rx="1" fill="currentColor"/><rect x="1" y="6.5" width="13" height="2" rx="1" fill="currentColor"/><rect x="1" y="11" width="13" height="2" rx="1" fill="currentColor"/></svg>
             </CardViewBtn>
             <div style={{ width: 1, height: 22, background: 'var(--fta-line-2)' }} />
-            <button className="btn btn-primary btn-sm" onClick={handleCreateCard}>
-              <Icon name="plus" size={12} />Create Card
+            <button className="btn btn-primary btn-sm" onClick={handleIssueCard}>
+              <Icon name="plus" size={12} />Issue Card
             </button>
           </div>
         </div>
 
         {/* Content */}
         {allSubCards.length === 0 ? (
-          <CardEmptyState onCreateCard={handleCreateCard} />
+          <CardEmptyState onIssueCard={handleIssueCard} />
         ) : filtered.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--fta-text-3)', fontSize: 13 }}>
             No cards match your filters.
@@ -610,18 +975,18 @@ function CardViewBtn({ active, onClick, title, children }) {
   );
 }
 
-function CardEmptyState({ onCreateCard }) {
+function CardEmptyState({ onIssueCard }) {
   return (
     <div style={{ textAlign: 'center', padding: '56px 20px' }}>
       <div style={{ width: 56, height: 56, margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 14, background: 'var(--fta-fill-2)', color: 'var(--fta-text-3)' }}>
         <Icon name="card" size={26} />
       </div>
-      <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 6 }}>No cards created yet.</div>
+      <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 6 }}>No cards issued yet.</div>
       <div style={{ fontSize: 13, color: 'var(--fta-text-3)', marginBottom: 20 }}>
-        Create a card product definition for this sub-program.
+        Issue a card to a cardholder under this sub-program.
       </div>
-      <button className="btn btn-primary" onClick={onCreateCard}>
-        <Icon name="plus" size={14} />Create Card
+      <button className="btn btn-primary" onClick={onIssueCard}>
+        <Icon name="plus" size={14} />Issue Card
       </button>
     </div>
   );
@@ -861,27 +1226,29 @@ export function CardsView({ navigate }) {
   const [statusFilter,   setStatusFilter]   = useState('All Status');
   const [cardTypeFilter, setCardTypeFilter] = useState('All Types');
   const [networkFilter,  setNetworkFilter]  = useState('All Networks');
-  const [searchText,     setSearchText]     = useState('');
 
   const allCards = AppData.cards;
 
-  const filtered = allCards.filter(c => {
-    const q = searchText.trim().toLowerCase();
-    const matchSearch  = !q
-      || (c.cardholderSnapshot?.name || '').toLowerCase().includes(q)
-      || (c.last4 || '').includes(q)
-      || (c.cardName || '').toLowerCase().includes(q);
+  const filteredData = allCards.filter(c => {
     const matchStatus  = statusFilter   === 'All Status'   || c.cardStatus === statusFilter;
     const matchType    = cardTypeFilter === 'All Types'     || c.cardType   === cardTypeFilter;
     const matchNetwork = networkFilter  === 'All Networks'  || c.network    === networkFilter;
-    return matchSearch && matchStatus && matchType && matchNetwork;
+    return matchStatus && matchType && matchNetwork;
+  });
+
+  const state = useDataTableState({
+    data: filteredData,
+    searchPredicate: (c, q) =>
+      (c.cardholderSnapshot?.name || '').toLowerCase().includes(q) ||
+      (c.last4 || '').includes(q) ||
+      (c.cardName || '').toLowerCase().includes(q),
   });
 
   function handleReset() {
     setStatusFilter('All Status');
     setCardTypeFilter('All Types');
     setNetworkFilter('All Networks');
-    setSearchText('');
+    state.setSearch('');
   }
 
   return (
@@ -891,9 +1258,6 @@ export function CardsView({ navigate }) {
           <h1 className="page-title">Cards</h1>
           <div className="page-subtitle">All issued cards across all programs · {allCards.length.toLocaleString()} total</div>
         </div>
-        <button className="btn btn-primary" onClick={() => navigate('issue-card', { from: 'global-cards' })}>
-          <Icon name="plus" size={14} />Create Card
-        </button>
       </div>
 
       <div className="grid-3">
@@ -902,25 +1266,31 @@ export function CardsView({ navigate }) {
         <SmallStat label="Frozen / Inactive" value={allCards.filter(c => c.cardStatus !== 'Active').length} icon="shield" tone="peach" />
       </div>
 
-      {/* Filter row */}
-      <div className="card" style={{ padding: 16, marginBottom: 0 }}>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <FilterField label="Status" style={{ width: 160 }}>
+      <DataTableFilters>
+        <DataTableFilterField>
+          <DataTableFilterLabel>Status</DataTableFilterLabel>
+          <div className="select">
             <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
               <option>All Status</option>
               <option>Active</option>
               <option>Frozen</option>
               <option>Inactive</option>
             </select>
-          </FilterField>
-          <FilterField label="Card Type" style={{ width: 160 }}>
+          </div>
+        </DataTableFilterField>
+        <DataTableFilterField>
+          <DataTableFilterLabel>Card Type</DataTableFilterLabel>
+          <div className="select">
             <select value={cardTypeFilter} onChange={e => setCardTypeFilter(e.target.value)}>
               <option>All Types</option>
               <option value="credit">Credit Card</option>
               <option value="debit">Debit Card</option>
             </select>
-          </FilterField>
-          <FilterField label="Network" style={{ width: 160 }}>
+          </div>
+        </DataTableFilterField>
+        <DataTableFilterField>
+          <DataTableFilterLabel>Network</DataTableFilterLabel>
+          <div className="select">
             <select value={networkFilter} onChange={e => setNetworkFilter(e.target.value)}>
               <option>All Networks</option>
               <option>Visa</option>
@@ -928,44 +1298,41 @@ export function CardsView({ navigate }) {
               <option>UnionPay</option>
               <option>American Express</option>
             </select>
-          </FilterField>
-          <div style={{ flex: 1 }} />
-          <button className="btn btn-ghost" onClick={handleReset}>Reset</button>
-          <button className="btn btn-primary">Search</button>
-        </div>
-      </div>
+          </div>
+        </DataTableFilterField>
+        <DataTableFilterActions onReset={handleReset} />
+      </DataTableFilters>
+      <div className="filter-divider" />
 
-      {/* Cards section */}
-      <div className="card" style={{ padding: 0 }}>
-        {/* Toolbar */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: '1px solid var(--fta-line-2)' }}>
-          <h2 style={{ margin: 0 }}>
-            Cards
-            <span style={{ color: 'var(--fta-text-3)', fontWeight: 400, fontSize: 13, marginLeft: 6 }}>({filtered.length})</span>
-          </h2>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <div className="input" style={{ width: 240 }}>
-              <Icon name="search" className="ico" />
-              <input
-                placeholder="Search holder, last 4, card name…"
-                value={searchText}
-                onChange={e => setSearchText(e.target.value)}
-              />
-            </div>
+      <DataTableWorkbench
+        title="Cards"
+        surfaceVariant={viewMode === 'grid' ? 'embedded' : 'default'}
+        search={{
+          value: state.search,
+          onChange: state.setSearch,
+          placeholder: 'Search holder, last 4, card name…',
+        }}
+        actions={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <CardViewBtn active={viewMode === 'grid'} onClick={() => setViewMode('grid')} title="Grid view">
               <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="1" y="1" width="5.5" height="5.5" rx="1" fill="currentColor"/><rect x="8.5" y="1" width="5.5" height="5.5" rx="1" fill="currentColor"/><rect x="1" y="8.5" width="5.5" height="5.5" rx="1" fill="currentColor"/><rect x="8.5" y="8.5" width="5.5" height="5.5" rx="1" fill="currentColor"/></svg>
             </CardViewBtn>
             <CardViewBtn active={viewMode === 'list'} onClick={() => setViewMode('list')} title="List view">
               <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="1" y="2" width="13" height="2" rx="1" fill="currentColor"/><rect x="1" y="6.5" width="13" height="2" rx="1" fill="currentColor"/><rect x="1" y="11" width="13" height="2" rx="1" fill="currentColor"/></svg>
             </CardViewBtn>
-            <div style={{ width: 1, height: 22, background: 'var(--fta-line-2)' }} />
-            <button className="btn btn-primary btn-sm" onClick={() => navigate('issue-card', { from: 'global-cards' })}>
-              <Icon name="plus" size={12} />Create Card
-            </button>
+            <Button onClick={() => navigate('issue-card', { from: 'global-cards' })}>
+              <Plus size={14} />
+              Issue Card
+            </Button>
           </div>
-        </div>
-
-        {/* Content */}
+        }
+        totalLabel={`Total ${state.totalRows} items`}
+        currentPage={state.safeCurrentPage}
+        totalPages={state.totalPages}
+        pageItems={state.pageItems}
+        onPageChange={state.setCurrentPage}
+        pageSize={{ value: state.pageSize, onValueChange: state.setPageSize, options: ['10', '20', '50'] }}
+      >
         {allCards.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '56px 20px' }}>
             <div style={{ width: 56, height: 56, margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 14, background: 'var(--fta-fill-2)', color: 'var(--fta-text-3)' }}>
@@ -974,26 +1341,40 @@ export function CardsView({ navigate }) {
             <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 6 }}>No cards issued yet.</div>
             <div style={{ fontSize: 13, color: 'var(--fta-text-3)', marginBottom: 20 }}>Issue a card to a cardholder to get started.</div>
             <button className="btn btn-primary" onClick={() => navigate('issue-card', { from: 'global-cards' })}>
-              <Icon name="plus" size={14} />Create Card
+              <Icon name="plus" size={14} />Issue Card
             </button>
           </div>
-        ) : filtered.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--fta-text-3)', fontSize: 13 }}>
-            No cards match your filters.
-          </div>
         ) : viewMode === 'grid' ? (
-          <IssuedCardsGrid cards={filtered} navigate={navigate} />
+          state.pageRows.length > 0 ? (
+            <IssuedCardsGrid cards={state.pageRows} navigate={navigate} />
+          ) : (
+            <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--fta-text-3)', fontSize: 13 }}>
+              No cards match your filters.
+            </div>
+          )
         ) : (
-          <IssuedCardsList cards={filtered} navigate={navigate} />
+          <Table framed={false} widthBehavior="fill" showColumnBorders={false}>
+            <TableHeader>
+              <TableRow>
+                <TableHead columnId="card-number">Card Number</TableHead>
+                <TableHead columnId="card-holder">Card Holder</TableHead>
+                <TableHead columnId="card-network">Network</TableHead>
+                <TableHead columnId="card-type">Card Type</TableHead>
+                <TableHead columnId="card-form-factor">Form Factor</TableHead>
+                <TableHead columnId="card-program">Program</TableHead>
+                <TableHead columnId="card-status">Status</TableHead>
+                <TableHead columnId="card-created">Created</TableHead>
+                <TableActionHead />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {state.pageRows.length > 0
+                ? <IssuedCardsRows cards={state.pageRows} navigate={navigate} />
+                : <DataTableEmptyStateRow colSpan={9} />}
+            </TableBody>
+          </Table>
         )}
-
-        {allCards.length > 0 && (
-          <div className="table-foot" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span>Total {filtered.length} items</span>
-            <Pager />
-          </div>
-        )}
-      </div>
+      </DataTableWorkbench>
     </div>
   );
 }
@@ -1073,230 +1454,630 @@ function IssuedCardTile({ card, navigate }) {
 
 function IssuedCardsGrid({ cards, navigate }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(228px, 1fr))', gap: 16, padding: 20 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(228px, 1fr))', gap: 16 }}>
       {cards.map(card => <IssuedCardTile key={card.id} card={card} navigate={navigate} />)}
     </div>
   );
 }
 
-function IssuedCardsList({ cards, navigate }) {
-  return (
-    <table className="table">
-      <thead>
-        <tr>
-          <th>Card Number</th>
-          <th>Card Holder</th>
-          <th>Network</th>
-          <th>Card Type</th>
-          <th>Form Factor</th>
-          <th>Program</th>
-          <th>Status</th>
-          <th>Created</th>
-          <th style={{ textAlign: 'right' }}>Action</th>
-        </tr>
-      </thead>
-      <tbody>
-        {cards.map(c => {
-          const last4 = c.last4 || (c.binPrefix || '').slice(-4).padStart(4, '0') || '0000';
-          const createdDate = c.createdAt
-            ? new Date(c.createdAt).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })
-            : '—';
-          const ff = c.formFactors;
-          const formText = ff?.length >= 2 ? 'Physical & Virtual'
-            : ff?.[0] === 'physical' ? 'Physical' : ff?.[0] === 'virtual' ? 'Virtual' : '—';
-          return (
-            <tr key={c.id}>
-              <td>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <CardMiniThumb network={c.network} cardType={c.cardType} />
-                  <span className="mono" style={{ fontSize: 12 }}>**** **** **** {last4}</span>
-                </div>
-              </td>
-              <td>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <ColorAvatar name={c.cardholderSnapshot?.name || '?'} size="sm" />
-                  <span>{c.cardholderSnapshot?.name || '—'}</span>
-                </div>
-              </td>
-              <td><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><NetworkMark network={c.network} />{c.network}</span></td>
-              <td>
-                <span style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: c.cardType === 'credit' ? '#eff6ff' : '#f0fff4', color: c.cardType === 'credit' ? '#1e40af' : '#166534' }}>
-                  {c.cardType === 'credit' ? 'Credit Card' : 'Debit Card'}
-                </span>
-              </td>
-              <td style={{ fontSize: 13 }}>{formText}</td>
-              <td style={{ fontWeight: 500, fontSize: 12 }}>{c.inheritedSubprogramSnapshot?.programName || '—'}</td>
-              <td><StatusPill status={c.cardStatus} /></td>
-              <td className="muted">{createdDate}</td>
-              <td style={{ textAlign: 'right' }}>
-                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                  <button onClick={() => navigate('card-detail', { cardId: c.id, from: 'cards' })} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--fta-primary-6)', fontSize: 12, fontWeight: 500 }}>View</button>
-                  <button style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--fta-primary-6)', fontSize: 12, fontWeight: 500 }}>Lock</button>
-                </div>
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
-  );
+function IssuedCardsRows({ cards, navigate }) {
+  return cards.map(c => {
+    const last4 = c.last4 || (c.binPrefix || '').slice(-4).padStart(4, '0') || '0000';
+    const createdDate = c.createdAt
+      ? new Date(c.createdAt).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })
+      : '—';
+    const ff = c.formFactors;
+    const formText = ff?.length >= 2 ? 'Physical & Virtual'
+      : ff?.[0] === 'physical' ? 'Physical' : ff?.[0] === 'virtual' ? 'Virtual' : '—';
+    return (
+      <TableRow key={c.id}>
+        <TableCell>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <CardMiniThumb network={c.network} cardType={c.cardType} />
+            <span className="mono" style={{ fontSize: 12 }}>**** **** **** {last4}</span>
+          </div>
+        </TableCell>
+        <TableCell>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <ColorAvatar name={c.cardholderSnapshot?.name || '?'} size="sm" />
+            <span>{c.cardholderSnapshot?.name || '—'}</span>
+          </div>
+        </TableCell>
+        <TableCell><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><NetworkMark network={c.network} />{c.network}</span></TableCell>
+        <TableCell>
+          <span style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: c.cardType === 'credit' ? '#eff6ff' : '#f0fff4', color: c.cardType === 'credit' ? '#1e40af' : '#166534' }}>
+            {c.cardType === 'credit' ? 'Credit Card' : 'Debit Card'}
+          </span>
+        </TableCell>
+        <TableCell style={{ fontSize: 13 }}>{formText}</TableCell>
+        <TableCell style={{ fontWeight: 500, fontSize: 12 }}>{c.inheritedSubprogramSnapshot?.programName || '—'}</TableCell>
+        <TableCell><StatusPill status={c.cardStatus} /></TableCell>
+        <TableCell className="muted">{createdDate}</TableCell>
+        <TableActionCell>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+            <button onClick={() => navigate('card-detail', { cardId: c.id, from: 'cards' })} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--fta-primary-6)', fontSize: 12, fontWeight: 500 }}>View</button>
+            <button style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--fta-primary-6)', fontSize: 12, fontWeight: 500 }}>Lock</button>
+          </div>
+        </TableActionCell>
+      </TableRow>
+    );
+  });
 }
 
-const SAMPLE_TXN_MERCHANTS = [
-  'Amazon', 'Starbucks', 'Uber', 'Whole Foods', 'Netflix', 'Apple', 'Target',
-  'Costco', 'Shell', 'CVS Pharmacy', 'Home Depot', 'Lyft', 'Trader Joe\'s', 'Best Buy',
-];
-const SAMPLE_TXN_CATEGORIES = [
-  'Shopping', 'Food & Beverage', 'Transportation', 'Groceries', 'Streaming', 'Technology',
-  'Retail', 'Wholesale', 'Gas & Auto', 'Healthcare', 'Home Improvement', 'Transportation',
-  'Groceries', 'Electronics',
-];
+const TXN_STATUS_TONE = { Posted: 'success', Pending: 'info', Declined: 'danger', Refunded: 'info', Reversed: 'warning' };
+function TxnStatusBadge({ status }) {
+  const tone = TXN_STATUS_TONE[status] || 'inactive';
+  return <span className={`pill --${tone}`}><span className="dot" />{status}</span>;
+}
 
-export function TransactionsView({ navigate }) {
-  const txns = AppData.customers.flatMap((c, ci) =>
-    Array.from({ length: 6 }, (_, i) => ({
-      id: `txn-${ci}-${i}`,
-      holder: c.name,
-      merchant: SAMPLE_TXN_MERCHANTS[(ci * 6 + i) % SAMPLE_TXN_MERCHANTS.length],
-      category: SAMPLE_TXN_CATEGORIES[(ci * 6 + i) % SAMPLE_TXN_CATEGORIES.length],
-      amount: Math.round((12 + (ci * 7 + i * 13) % 400) * 100) / 100,
-      last4: String(1234 + ci * 7 + i * 3).slice(-4),
-      network: i % 2 === 0 ? 'Visa' : 'Mastercard',
-      date: `04/${String(1 + (ci * 6 + i) % 28).padStart(2, '0')}/2024`,
-      type: i % 5 === 0 ? 'Refund' : 'Purchase',
-      status: i % 9 === 0 ? 'Pending' : 'Settled',
-    }))
-  );
+const TXN_TYPE_TONE = { Purchase: 'info', Refund: 'success', 'Authorization Hold': 'warning', Reversal: 'inactive' };
+function TxnTypeBadge({ type }) {
+  const tone = TXN_TYPE_TONE[type] || 'inactive';
+  return <span className={`pill --${tone}`}>{type}</span>;
+}
 
+const TXN_REFERENCE_DATE = new Date('2026-06-01');
+function parseTxnDate(str) {
+  const [m, d, y] = str.split('/');
+  return new Date(`${y}-${m}-${d}`);
+}
+
+// A transaction is "disputed" / "fraud flagged" when it matches a disputes[] / fraud[]
+// record on cardholder + merchant + amount (see the AppData.transactions comment).
+function findLinkedDispute(t) {
+  return AppData.disputes.find(d => d.holder === t.holder && d.merchant === t.merchant && Math.abs(d.amount - t.amount) < 0.01);
+}
+function findLinkedFraud(t) {
+  return AppData.fraud.find(f => f.name === t.holder && f.merchant === t.merchant && Math.abs(f.amount - t.amount) < 0.01);
+}
+function findTxnCard(t) {
+  return t.cardId ? AppData.cards.find(c => c.id === t.cardId) : null;
+}
+
+function declineDetailsFor(t, fraudHit) {
+  if (fraudHit) return { reason: fraudHit.reason, code: 'FRAUD-BLOCK', response: 'Pick Up Card' };
+  if (t.category === 'Cash Advance') return { reason: 'Cash advance limit exceeded', code: '61', response: 'Exceeds Withdrawal Limit' };
+  return { reason: 'Do not honor', code: '05', response: 'Do Not Honor' };
+}
+
+// Deterministic pseudo-numeric string derived from a seed, so the same transaction
+// always renders the same value but different transactions render different values.
+function seededDigits(seed, salt, len) {
+  let h = 0; const s = String(seed) + salt;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return String(h).padStart(len, '0').slice(0, len);
+}
+
+// Presentation-only fields for the Detail page's General Information / Merchant
+// sections that aren't part of the core transactions[] record — derived from the
+// transaction plus its linked card/cardholder rather than stored redundantly.
+function deriveTxnDetailFields(t) {
+  const card = findTxnCard(t);
+  const cardholder = AppData.customers.find(c => c.id === t.cardholderId);
+  const nestedProgram = card?.subprogramId ? AppData.subPrograms.find(s => s.id === card.subprogramId) : null;
+  const isSettled = ['Posted', 'Refunded', 'Reversed'].includes(t.status);
+  return {
+    nestedProgramName: nestedProgram?.name || '—',
+    authorizationCode: seededDigits(t.id, 'auth', 6),
+    acceptorId: seededDigits(t.id, 'acceptor', 8).toUpperCase(),
+    dateAuthorized: t.date,
+    dateSettled: isSettled ? t.date : '—',
+    authorizationAmount: t.amount,
+    settledAmount: isSettled ? t.amount : 0,
+    fundingMethod: card?.formFactors?.includes('physical') ? 'Pre-Funded' : 'Just-in-time Funding',
+    result: t.status === 'Declined' ? 'Declined' : 'Approved',
+    acquirerFee: 0,
+    descriptor: t.merchant,
+    city: cardholder?.city || '—',
+    state: cardholder?.state || '—',
+    country: cardholder?.country || '—',
+  };
+}
+
+function txnTimelineSteps(t, dispute) {
+  const amt = `$${t.amount.toFixed(2)}`;
+  const steps = [{ label: 'Authorization', meta: `${t.date} · ${amt}`, date: t.date, status: 'Approved', done: true }];
+  if (t.status === 'Declined') {
+    steps.push({ label: 'Declined', meta: `${t.date} · ${amt}`, date: t.date, status: 'Declined', done: true });
+    return steps;
+  }
+  if (t.status === 'Pending') {
+    steps.push({ label: 'Clearing', meta: 'Awaiting merchant capture', date: '—', status: 'Pending', done: false });
+    return steps;
+  }
+  steps.push({ label: 'Clearing', meta: t.date, date: t.date, status: 'Approved', done: true });
+  const finalLabel = t.status === 'Refunded' ? 'Refund' : t.status === 'Reversed' ? 'Reversal' : 'Settled';
+  steps.push({ label: finalLabel, meta: `${t.date} · ${amt}`, date: t.date, status: t.status, done: true });
+  if (dispute) steps.push({ label: 'Disputed', meta: `Case ${dispute.case} filed ${dispute.filed}`, date: dispute.filed, status: dispute.status, done: true });
+  return steps;
+}
+
+function auditActionFor(stepLabel) {
+  if (stepLabel === 'Authorization') return 'Authorization Approved';
+  if (stepLabel === 'Declined') return 'Authorization Declined';
+  if (stepLabel === 'Clearing') return 'Clearing Processed';
+  if (stepLabel === 'Disputed') return 'Dispute Filed';
+  return `Transaction ${stepLabel}`;
+}
+
+const _MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+function statementLabelFor(t) {
+  const [m, , y] = t.date.split('/');
+  return `${_MONTH_NAMES[parseInt(m, 10) - 1] || ''} ${y} Statement`;
+}
+
+function RelatedRecordRow({ icon, label, value, onClick }) {
+  const disabled = !onClick;
   return (
-    <div className="content-inner fade-in">
-      <div className="page-header">
+    <div
+      onClick={onClick}
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '10px 12px', borderRadius: 8, background: 'var(--fta-fill-2)',
+        cursor: disabled ? 'default' : 'pointer',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <Icon name={icon} size={15} style={{ color: 'var(--fta-text-4)' }} />
         <div>
-          <h1 className="page-title">Transactions</h1>
-          <div className="page-subtitle">All settled and pending transactions · April 2024</div>
-        </div>
-        <button className="btn btn-ghost"><Icon name="download" size={14} />Export</button>
-      </div>
-
-      <div className="card" style={{ padding: 16, marginBottom: 16 }}>
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-          <FilterField label="Status" style={{ width: 160 }}>
-            <select><option>All Status</option><option>Settled</option><option>Pending</option></select>
-          </FilterField>
-          <FilterField label="Type" style={{ width: 160 }}>
-            <select><option>All</option><option>Purchase</option><option>Refund</option></select>
-          </FilterField>
-          <FilterField label="Network" style={{ width: 160 }}>
-            <select><option>All</option><option>Visa</option><option>Mastercard</option></select>
-          </FilterField>
-          <FilterField label="Date" style={{ width: 200 }}>
-            <select><option>April 2024</option><option>March 2024</option><option>Last 30 days</option></select>
-          </FilterField>
-          <div style={{ flex: 1 }} />
-          <button className="btn btn-primary">Search</button>
+          <div style={{ fontSize: 11, color: 'var(--fta-text-3)' }}>{label}</div>
+          <div style={{ fontSize: 13, fontWeight: 500, color: disabled ? 'var(--fta-text-3)' : 'var(--fta-text-5)' }}>{value}</div>
         </div>
       </div>
-
-      <div className="card" style={{ padding: 0 }}>
-        <div className="table-toolbar" style={{ padding: '16px 20px 0' }}>
-          <h2>Transaction List <span style={{ color: 'var(--fta-text-3)', fontWeight: 400, fontSize: 13, marginLeft: 6 }}>({txns.length})</span></h2>
-          <div className="right">
-            <div className="input" style={{ width: 300 }}>
-              <Icon name="search" className="ico" />
-              <input placeholder="Search merchant, holder, card" />
-            </div>
-          </div>
-        </div>
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Card Holder</th><th>Merchant</th><th>Category</th><th>Card</th>
-              <th style={{ textAlign: 'right' }}>Amount</th><th>Date</th><th>Type</th><th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {txns.slice(0, 30).map(t => (
-              <tr key={t.id}>
-                <td><div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><ColorAvatar name={t.holder} size="sm" /><span>{t.holder}</span></div></td>
-                <td style={{ fontWeight: 500 }}>{t.merchant}</td>
-                <td><span style={{ fontSize: 12, color: 'var(--fta-text-4)' }}>{t.category}</span></td>
-                <td><div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><NetworkMark network={t.network} /><span className="mono">·· {t.last4}</span></div></td>
-                <td style={{ textAlign: 'right', fontWeight: 500 }}>${t.amount.toFixed(2)}</td>
-                <td className="muted">{t.date}</td>
-                <td><span className={"pill " + (t.type === 'Refund' ? '--success' : '--info')}>{t.type}</span></td>
-                <td><StatusPill status={t.status} /></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <div className="table-foot"><span>Showing 30 of {txns.length}</span><Pager /></div>
-      </div>
+      {!disabled && <Icon name="chev-right" size={14} style={{ color: 'var(--fta-text-3)' }} />}
     </div>
   );
 }
 
-export function FraudView({ navigate }) {
+export function TransactionsView({ navigate, navParam }) {
+  if (navParam) {
+    const txn = AppData.transactions.find(t => t.id === navParam);
+    if (txn) return <TransactionDetail txn={txn} navigate={navigate} />;
+  }
+  return <TransactionList navigate={navigate} />;
+}
+
+// ── Transaction Detail: local presentational helpers ────────────
+// Scoped to this page only — the shared <Field> box component (and its
+// callers elsewhere in this file) are left untouched. These render a
+// lighter, row-based "key-value list" instead of one bordered box per
+// field, which is what an operations-style transaction page needs when a
+// single record carries 25+ attributes.
+function DetailRow({ label, value, valueNode, full }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 16,
+      padding: '9px 0', borderBottom: '1px solid var(--fta-line-3)',
+      gridColumn: full ? '1 / -1' : undefined,
+    }}>
+      <span style={{ fontSize: 12.5, color: 'var(--fta-text-3)', flexShrink: 0 }}>{label}</span>
+      <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--fta-text-5)', textAlign: 'right' }}>{valueNode ?? value}</span>
+    </div>
+  );
+}
+
+function DetailSubsection({ title, first, children }) {
+  return (
+    <div style={{ marginTop: first ? 0 : 22 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--fta-text-4)', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 10 }}>{title}</div>
+      <div className="grid-2">{children}</div>
+    </div>
+  );
+}
+
+function HeaderStat({ label, value, valueNode }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
+      <span style={{ fontSize: 11, color: 'var(--fta-text-3)', textTransform: 'uppercase', letterSpacing: '.05em' }}>{label}</span>
+      <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--fta-text-5)' }}>{valueNode ?? value}</span>
+    </div>
+  );
+}
+
+function HeaderStatDivider() {
+  return <div style={{ width: 1, alignSelf: 'stretch', background: 'var(--fta-line-3)' }} />;
+}
+
+function TransactionDetail({ txn, navigate }) {
+  const [toast, showToast] = useToast();
+  const card = findTxnCard(txn);
+  const dispute = findLinkedDispute(txn);
+  const fraudHit = findLinkedFraud(txn);
+  const decline = txn.status === 'Declined' ? declineDetailsFor(txn, fraudHit) : null;
+  const timeline = txnTimelineSteps(txn, dispute);
+  const d = deriveTxnDetailFields(txn);
+
   return (
     <div className="content-inner fade-in">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Fraud Monitoring</h1>
-          <div className="page-subtitle">Suspicious activity and fraud alerts · Real-time monitoring</div>
-        </div>
-        <button className="btn btn-primary"><Icon name="shield" size={14} />Configure Rules</button>
-      </div>
+      <Breadcrumb navigate={navigate} items={[{ label: 'Transactions', route: 'transactions' }, { label: txn.id }]} />
 
-      <div className="grid-3">
-        <SmallStat label="Active Alerts" value={AppData.fraud.filter(f => f.status === 'Alert').length} icon="circle" tone="peach" />
-        <SmallStat label="Under Review" value={AppData.fraud.filter(f => f.status === 'Review').length} icon="eye" tone="navy" />
-        <SmallStat label="Cleared" value={AppData.fraud.filter(f => f.status === 'Cleared').length} icon="shield" tone="green" />
-      </div>
-
-      <div className="card" style={{ padding: 0 }}>
-        <div className="table-toolbar" style={{ padding: '16px 20px 0' }}>
-          <h2>Fraud Alerts <span style={{ color: 'var(--fta-text-3)', fontWeight: 400, fontSize: 13, marginLeft: 6 }}>({AppData.fraud.length})</span></h2>
-          <div className="right">
-            <div className="input" style={{ width: 280 }}>
-              <Icon name="search" className="ico" />
-              <input placeholder="Search by name, merchant, card" />
+      {/* ── Transaction Header: the amount is the primary identity of this page ── */}
+      <div className="card" style={{ padding: '22px 24px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, minWidth: 0 }}>
+            <div style={{ width: 52, height: 52, borderRadius: 12, background: 'var(--fta-fill-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Icon name="receipt" size={24} style={{ color: 'var(--fta-primary-6)' }} />
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <h1 style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', margin: 0, fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--fta-text-5)' }}>
+                ${txn.amount.toFixed(2)} <TxnStatusBadge status={txn.status} />
+              </h1>
+              <div style={{ fontSize: 14, color: 'var(--fta-text-4)', marginTop: 2 }}>{txn.merchant}</div>
+              <div style={{ fontSize: 12, color: 'var(--fta-text-3)', marginTop: 4 }}>{txn.id} · {txn.date}</div>
             </div>
           </div>
+          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+            <button className="btn btn-primary" onClick={() => showToast('File Dispute flow is not available in this prototype')}>File Dispute</button>
+            <button className="btn btn-ghost" onClick={() => showToast('Return Reversal flow is not available in this prototype')}>Return Reversal</button>
+            <button className="btn btn-ghost" onClick={() => showToast('Export is not wired up in this mock.')}>
+              <Icon name="download" size={14} />Export
+            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="btn btn-ghost" aria-label="More actions"><MoreVertical size={14} /></button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onSelect={() => showToast('Void flow is not available in this prototype')}>Void</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => showToast('Edit Category flow is not available in this prototype')}>Edit Category</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Cardholder</th><th>Card</th><th>Merchant</th><th>Reason</th>
-              <th style={{ textAlign: 'right' }}>Amount</th><th style={{ textAlign: 'right' }}>Risk Score</th>
-              <th>Status</th><th style={{ textAlign: 'right' }}>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {AppData.fraud.map(f => (
-              <tr key={f.id}>
-                <td><div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><ColorAvatar name={f.name} size="sm" /><span>{f.name}</span></div></td>
-                <td className="mono">·· {f.card}</td>
-                <td>{f.merchant}</td>
-                <td><span style={{ fontSize: 12, color: 'var(--fta-text-4)' }}>{f.reason}</span></td>
-                <td style={{ textAlign: 'right', fontWeight: 500 }}>${f.amount.toFixed(2)}</td>
-                <td style={{ textAlign: 'right' }}>
-                  <span style={{
-                    fontWeight: 700, fontSize: 13,
-                    color: f.score >= 80 ? 'var(--fta-error)' : f.score >= 50 ? 'var(--fta-warning)' : 'var(--fta-success)'
-                  }}>{f.score}</span>
-                </td>
-                <td><StatusPill status={f.status} /></td>
-                <td style={{ textAlign: 'right' }}>
-                  <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
-                    <button className="btn btn-sm btn-ghost">Review</button>
-                    <button className="btn btn-sm btn-ghost">Block</button>
+
+        <div style={{ display: 'flex', alignItems: 'stretch', gap: 28, marginTop: 20, paddingTop: 18, borderTop: '1px solid var(--fta-line-3)', flexWrap: 'wrap' }}>
+          <HeaderStat label="Cardholder" valueNode={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><ColorAvatar name={txn.holder} size="sm" />{txn.holder}</span>} />
+          <HeaderStatDivider />
+          <HeaderStat label="Card" value={`•••• ${txn.last4}`} />
+          <HeaderStatDivider />
+          <HeaderStat label="Network" valueNode={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><NetworkMark network={txn.network} />{txn.network}</span>} />
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.6fr) minmax(300px, 1fr)', gap: 16, alignItems: 'flex-start' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div className="card">
+            <div className="card-section-title">Transaction Details</div>
+
+            <DetailSubsection title="General Information" first>
+              <DetailRow label="Transaction ID" value={txn.id} />
+              <DetailRow label="Card No. Last Four Digit" value={`•••• ${txn.last4}`} />
+              <DetailRow label="Created Date" value={txn.date} />
+              <DetailRow label="Date Authorized" value={d.dateAuthorized} />
+              <DetailRow label="Nested Program Name" value={d.nestedProgramName} />
+              <DetailRow label="Funding Method" value={d.fundingMethod} />
+              <DetailRow label="Date Settled" value={d.dateSettled} />
+              <DetailRow label="Result" value={d.result} />
+              <DetailRow label="Authorization Amount" value={`$${d.authorizationAmount.toFixed(2)}`} />
+              <DetailRow label="Settled Amount" value={`$${d.settledAmount.toFixed(2)}`} />
+              <DetailRow label="Network" valueNode={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><NetworkMark network={txn.network} />{txn.network}</span>} />
+              <DetailRow label="Acquirer Fee" value={`$${d.acquirerFee.toFixed(2)}`} />
+              <DetailRow label="Authorization Code" value={d.authorizationCode} />
+              <DetailRow label="Category" value={txn.category} />
+              <DetailRow label="Type" valueNode={<TxnTypeBadge type={txn.type} />} />
+              <DetailRow label="Card Type" value={card?.cardTypeLabel || '—'} />
+              <DetailRow full label="Form Factor" valueNode={<FormFactorTag type={card?.type} formFactors={card?.formFactors} />} />
+            </DetailSubsection>
+
+            <DetailSubsection title="Merchant">
+              <DetailRow label="Acceptor ID" value={d.acceptorId} />
+              <DetailRow label="Descriptor" value={d.descriptor} />
+              <DetailRow label="City" value={d.city} />
+              <DetailRow label="Country" value={d.country} />
+              <DetailRow label="Merchant Category Code (MCC)" value={txn.mcc} />
+              <DetailRow label="State" value={d.state} />
+              <DetailRow label="Merchant Amount" value={`$${txn.amount.toFixed(2)}`} />
+              <DetailRow label="Merchant Auth Amount" value={`$${d.authorizationAmount.toFixed(2)}`} />
+              <DetailRow full label="Merchant Currency" value="USD" />
+            </DetailSubsection>
+          </div>
+
+          {decline && (
+            <div className="card">
+              <div className="card-section-title">Decline Details</div>
+              <div className="grid-2">
+                <DetailRow label="Decline Reason" value={decline.reason} />
+                <DetailRow label="Decline Code" value={decline.code} />
+                <DetailRow full label="Network Response" value={decline.response} />
+              </div>
+            </div>
+          )}
+
+          {fraudHit && (
+            <div className="card">
+              <div className="card-section-title">Fraud Alert</div>
+              <div className="grid-2" style={{ marginBottom: 16 }}>
+                <DetailRow label="Fraud Flag" valueNode={<span className="pill --danger"><Icon name="alert-triangle" size={11} />Flagged</span>} />
+                <DetailRow label="Fraud Status" valueNode={<FraudStatusBadge status={fraudHit.status} />} />
+                <DetailRow label="Risk Score" valueNode={
+                  <span style={{ fontWeight: 700, fontSize: 15, color: fraudHit.score >= 80 ? 'var(--fta-error)' : fraudHit.score >= 50 ? 'var(--fta-warning)' : 'var(--fta-success)' }}>
+                    {fraudHit.score}
+                  </span>
+                } />
+                <DetailRow label="Risk Tier" value={fraudRiskTier(fraudHit.score)} />
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <div className="field-label" style={{ marginBottom: 6 }}>Fraud Signals</div>
+                <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: 'var(--fta-text-5)', lineHeight: 1.7 }}>
+                  {fraudHit.reason.split('+').map(sig => sig.trim()).filter(Boolean).map(sig => <li key={sig}>{sig}</li>)}
+                </ul>
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button className="btn btn-sm btn-primary" onClick={() => showToast('Confirm Fraud flow is not available in this prototype')}>Confirm Fraud</button>
+                <button className="btn btn-sm btn-ghost" onClick={() => showToast('Dismiss flow is not available in this prototype')}>Dismiss</button>
+                <button className="btn btn-sm btn-ghost" onClick={() => showToast('Escalate flow is not available in this prototype')}>Escalate</button>
+                <button className="btn btn-sm btn-ghost" onClick={() => showToast('Freeze Card flow is not available in this prototype')}>Freeze Card</button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div className="card">
+            <div className="card-section-title">Timeline</div>
+            <div className="stepper">
+              {timeline.map((s, i) => (
+                <div key={s.label} className={'step' + (!s.done ? ' --upcoming' : '')}>
+                  <div className={'step-dot' + (!s.done ? ' --upcoming' : '')}>
+                    {s.done ? <Icon name="check" size={12} strokeWidth={3} /> : <div className="inner" />}
                   </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <div className="table-foot"><span>Total {AppData.fraud.length} items</span><Pager /></div>
+                  <div className="step-title">{s.label} <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--fta-text-3)' }}>· {s.status}</span></div>
+                  <div className="step-meta">{s.meta}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="card-section-title">Related Records</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <RelatedRecordRow icon="user" label="Cardholder Account" value={`${txn.holder} · ${txn.cardholderId}`} onClick={() => navigate('customer-detail', txn.cardholderId)} />
+              <RelatedRecordRow
+                icon="message"
+                label="Dispute Case"
+                value={dispute ? `${dispute.reason} · Case ${dispute.case}` : 'No linked dispute'}
+                onClick={dispute ? () => navigate('dispute-detail', dispute.id) : null}
+              />
+              <RelatedRecordRow icon="file" label="Statement" value={statementLabelFor(txn)} onClick={() => navigate('billing-summary')} />
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="card-section-title">Audit Log</div>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {timeline.map((s, i) => (
+                <div key={s.label} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '10px 0', borderBottom: i < timeline.length - 1 ? '1px solid var(--fta-line-3)' : 'none',
+                }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 500 }}>{s.label === 'Disputed' ? 'Cardholder' : 'System'}</div>
+                    <div style={{ fontSize: 12, color: 'var(--fta-text-4)' }}>{auditActionFor(s.label)}</div>
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--fta-text-3)' }}>{s.date}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
+      <ToastBanner message={toast} />
     </div>
   );
 }
+
+function TransactionList({ navigate }) {
+  const [statusFilter, setStatusFilter]      = useState('All Status');
+  const [typeFilter, setTypeFilter]          = useState('All Types');
+  const [networkFilter, setNetworkFilter]    = useState('All Networks');
+  const [dateFilter, setDateFilter]          = useState('All Dates');
+  const [merchantFilter, setMerchantFilter]  = useState('All Merchants');
+  const [fraudOnly, setFraudOnly]            = useState(false);
+  const [toast, showToast]                   = useToast();
+
+  const txns = AppData.transactions;
+  const merchantOptions = [...new Set(txns.map(t => t.merchant))].sort();
+
+  const filteredData = txns.filter(t => {
+    const matchStatus   = statusFilter === 'All Status'     || t.status === statusFilter;
+    const matchType      = typeFilter === 'All Types'        || t.type === typeFilter;
+    const matchNetwork   = networkFilter === 'All Networks'  || t.network === networkFilter;
+    const matchMerchant  = merchantFilter === 'All Merchants'|| t.merchant === merchantFilter;
+    const matchFraud     = !fraudOnly || !!findLinkedFraud(t);
+    const matchDate = (() => {
+      if (dateFilter === 'All Dates') return true;
+      const days = (TXN_REFERENCE_DATE - parseTxnDate(t.date)) / (1000 * 60 * 60 * 24);
+      if (dateFilter === 'Last 7 Days')  return days >= 0 && days <= 7;
+      if (dateFilter === 'Last 30 Days') return days >= 0 && days <= 30;
+      return true;
+    })();
+    return matchStatus && matchType && matchNetwork && matchMerchant && matchFraud && matchDate;
+  });
+
+  const state = useDataTableState({
+    data: filteredData,
+    searchPredicate: (t, q) =>
+      t.holder.toLowerCase().includes(q) ||
+      t.merchant.toLowerCase().includes(q) ||
+      t.category.toLowerCase().includes(q) ||
+      t.last4.includes(q) ||
+      t.id.toLowerCase().includes(q) ||
+      t.mcc.includes(q),
+  });
+
+  function resetFilters() {
+    setStatusFilter('All Status'); setTypeFilter('All Types');
+    setNetworkFilter('All Networks'); setDateFilter('All Dates');
+    setMerchantFilter('All Merchants'); setFraudOnly(false);
+    state.setSearch('');
+  }
+
+  return (
+    <div className="content-inner fade-in">
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Transaction</h1>
+          <div className="page-subtitle">All cardholder transactions · May 2026</div>
+        </div>
+      </div>
+
+      <DataTableFilters>
+        <DataTableFilterField>
+          <DataTableFilterLabel>Status</DataTableFilterLabel>
+          <div className="select">
+            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+              <option>All Status</option><option>Pending</option><option>Posted</option><option>Declined</option><option>Refunded</option><option>Reversed</option>
+            </select>
+          </div>
+        </DataTableFilterField>
+        <DataTableFilterField>
+          <DataTableFilterLabel>Type</DataTableFilterLabel>
+          <div className="select">
+            <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
+              <option>All Types</option><option>Purchase</option><option>Refund</option><option>Authorization Hold</option><option>Reversal</option>
+            </select>
+          </div>
+        </DataTableFilterField>
+        <DataTableFilterField>
+          <DataTableFilterLabel>Network</DataTableFilterLabel>
+          <div className="select">
+            <select value={networkFilter} onChange={e => setNetworkFilter(e.target.value)}>
+              <option>All Networks</option><option>Visa</option><option>Mastercard</option>
+            </select>
+          </div>
+        </DataTableFilterField>
+        <DataTableFilterField>
+          <DataTableFilterLabel>Merchant</DataTableFilterLabel>
+          <div className="select">
+            <select value={merchantFilter} onChange={e => setMerchantFilter(e.target.value)}>
+              <option>All Merchants</option>
+              {merchantOptions.map(m => <option key={m}>{m}</option>)}
+            </select>
+          </div>
+        </DataTableFilterField>
+        <DataTableFilterField>
+          <DataTableFilterLabel>Date</DataTableFilterLabel>
+          <div className="select">
+            <select value={dateFilter} onChange={e => setDateFilter(e.target.value)}>
+              <option>All Dates</option><option>Last 7 Days</option><option>Last 30 Days</option>
+            </select>
+          </div>
+        </DataTableFilterField>
+        <DataTableFilterField>
+          <DataTableFilterLabel>&nbsp;</DataTableFilterLabel>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 7, height: 34, cursor: 'pointer', fontSize: 13, color: 'var(--fta-text-4)' }}>
+            <input type="checkbox" checked={fraudOnly} onChange={e => setFraudOnly(e.target.checked)} style={{ accentColor: 'var(--fta-primary-6)', width: 15, height: 15 }} />
+            Fraud flagged only
+          </label>
+        </DataTableFilterField>
+        <DataTableFilterActions onReset={resetFilters} />
+      </DataTableFilters>
+      <div className="filter-divider" />
+
+      <StandardDataTable
+        title="Transaction List"
+        search={{
+          value: state.search,
+          onChange: state.setSearch,
+          placeholder: 'Search ID, holder, merchant, card, MCC',
+        }}
+        state={state}
+        tableProps={{ widthBehavior: 'fill', showColumnBorders: false }}
+        header={
+          <TableHeader>
+            <TableRow>
+              <TableHead columnId="txn-id">Transaction ID</TableHead>
+              <TableHead columnId="txn-customer">Customer</TableHead>
+              <TableHead columnId="txn-merchant">Merchant</TableHead>
+              <TableHead columnId="txn-card">Card</TableHead>
+              <TableHead columnId="txn-network">Network</TableHead>
+              <TableHead columnId="txn-amount" style={{ textAlign: 'right' }}>Amount</TableHead>
+              <TableHead columnId="txn-date">Date</TableHead>
+              <TableHead columnId="txn-type">Type</TableHead>
+              <TableHead columnId="txn-status">Status</TableHead>
+              <TableHead columnId="txn-flags">Flags</TableHead>
+              <TableActionHead />
+            </TableRow>
+          </TableHeader>
+        }
+        renderRows={(s) =>
+          s.pageRows.map((t) => {
+            const card = findTxnCard(t);
+            const fraudHit = findLinkedFraud(t);
+            const disputeHit = findLinkedDispute(t);
+            return (
+              <TableRow key={t.id} className="cursor-pointer" onClick={() => navigate('transaction-detail', t.id)}>
+                <TableCell className="mono muted">{t.id}</TableCell>
+                <TableCell>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <ColorAvatar name={t.holder} size="sm" />
+                    <div>
+                      <div>{t.holder}</div>
+                      <div className="mono" style={{ fontSize: 11, color: 'var(--fta-text-3)' }}>•••• {t.last4}</div>
+                    </div>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div style={{ fontWeight: 500 }}>{t.merchant}</div>
+                  <div style={{ fontSize: 12, color: 'var(--fta-text-4)' }}>
+                    {t.category} <span className="mono" style={{ fontSize: 11, color: 'var(--fta-text-3)' }}>· {t.mcc}</span>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>{card?.cardTypeLabel || '—'}</div>
+                  <FormFactorTag type={card?.type} formFactors={card?.formFactors} />
+                </TableCell>
+                <TableCell><div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><NetworkMark network={t.network} />{t.network}</div></TableCell>
+                <TableCell style={{ textAlign: 'right', fontWeight: 500 }}>${t.amount.toFixed(2)}</TableCell>
+                <TableCell className="muted">{t.date}</TableCell>
+                <TableCell><TxnTypeBadge type={t.type} /></TableCell>
+                <TableCell><StatusPill status={t.status} /></TableCell>
+                <TableCell>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    {fraudHit && <span className="pill --danger" title={fraudHit.reason}><Icon name="alert-triangle" size={11} />Fraud</span>}
+                    {disputeHit && <span className="pill --warning" title={`Case ${disputeHit.case}`}><Icon name="message" size={11} />Dispute</span>}
+                    {!fraudHit && !disputeHit && <span style={{ color: 'var(--fta-text-3)', fontSize: 12 }}>—</span>}
+                  </div>
+                </TableCell>
+                <TableActionCell>
+                  <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }} onClick={e => e.stopPropagation()}>
+                    <button className="btn btn-sm btn-ghost" onClick={() => showToast('File Dispute flow is not available in this prototype')}>File Dispute</button>
+                    <button className="btn btn-sm btn-ghost" onClick={() => showToast('Return Reversal flow is not available in this prototype')}>Return Reversal</button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="btn btn-sm btn-ghost" style={{ padding: '0 6px' }} aria-label="More actions">
+                          <MoreVertical size={14} />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onSelect={() => showToast('Void flow is not available in this prototype')}>Void</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => showToast('Edit Category flow is not available in this prototype')}>Edit Category</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </TableActionCell>
+              </TableRow>
+            );
+          })
+        }
+        emptyState={<DataTableEmptyStateRow colSpan={11} />}
+      />
+      <ToastBanner message={toast} />
+    </div>
+  );
+}
+
+const FRAUD_STATUS_TONE = { Alert: 'danger', Review: 'warning', Cleared: 'success' };
+function FraudStatusBadge({ status }) {
+  const tone = FRAUD_STATUS_TONE[status] || 'inactive';
+  return <span className={`pill --${tone}`}><span className="dot" />{status}</span>;
+}
+
+function fraudRiskTier(score) {
+  if (score >= 80) return 'High';
+  if (score >= 50) return 'Medium';
+  return 'Low';
+}
+
+// FraudView (the standalone "Fraud Alerts" page) has been retired — fraud
+// investigation now happens inline on Transaction Detail. FraudStatusBadge and
+// fraudRiskTier stay in use there.

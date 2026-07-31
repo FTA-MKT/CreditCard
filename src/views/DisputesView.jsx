@@ -1,7 +1,49 @@
 import React, { useState } from 'react';
 import { Icon, StatusPill, Breadcrumb } from '../components/Shell';
-import { ColorAvatar, FilterField, Field, Pager, NetworkMark, SmallStat } from '../components/shared';
+import { ColorAvatar, Field, NetworkMark, SmallStat } from '../components/shared';
+import { TableCell, TableHead, TableHeader, TableRow, TableActionHead, TableActionCell } from '../components/ui/table';
+import { StandardDataTable } from '../components/business/data-display/StandardDataTable';
+import { useDataTableState } from '../components/business/data-display/useDataTableControls';
+import { DataTableEmptyStateRow } from '../components/business/data-display/DataTableEmptyState';
+import { DataTableFilters, DataTableFilterField, DataTableFilterLabel } from '../components/business/data-display/DataTableWorkbench';
+import { DataTableFilterActions } from '../components/business/data-display/DataTableFilterActions';
+import { Button } from '../components/ui/button';
 import AppData from '../data/AppData';
+
+function ToastBanner({ message }) {
+  if (!message) return null;
+  return (
+    <div style={{
+      position: 'fixed', bottom: 24, right: 24, zIndex: 999,
+      background: 'var(--fta-text-5)', color: '#fff', padding: '10px 16px',
+      borderRadius: 8, fontSize: 13, fontWeight: 500, boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
+    }}>
+      {message}
+    </div>
+  );
+}
+
+function useToast() {
+  const [toast, setToast] = useState(null);
+  function showToast(message) {
+    setToast(message);
+    setTimeout(() => setToast(null), 1800);
+  }
+  return [toast, showToast];
+}
+
+// Deterministic pseudo-numeric string derived from a seed, so the same dispute
+// always renders the same value but different disputes render different values.
+function seededDigits(seed, salt, len) {
+  let h = 0;
+  const s = String(seed) + salt;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return String(h).padStart(len, '0').slice(0, len);
+}
+
+function pseudoTransactionId(dispute) {
+  return `${seededDigits(dispute.id, 'txn-a', 8)}-${seededDigits(dispute.id, 'txn-b', 4)}-4${seededDigits(dispute.id, 'txn-c', 3)}-${seededDigits(dispute.id, 'txn-d', 4)}-${seededDigits(dispute.id, 'txn-e', 12)}`;
+}
 
 export default function DisputesView({ navigate, navParam }) {
   if (navParam) {
@@ -12,24 +54,39 @@ export default function DisputesView({ navigate, navParam }) {
 }
 
 function DisputeList({ navigate }) {
-  const [search, setSearch] = useState('');
   const [status, setStatus] = useState('All Status');
   const [reason, setReason] = useState('All Reasons');
+  const [network, setNetwork] = useState('All');
+  const [dateRange, setDateRange] = useState('Last 30 days');
+  const [toast, showToast] = useToast();
 
-  const filtered = AppData.disputes.filter(d => {
-    const matchSearch = !search ||
-      d.holder.toLowerCase().includes(search.toLowerCase()) ||
-      d.id.toLowerCase().includes(search.toLowerCase()) ||
-      d.case.toLowerCase().includes(search.toLowerCase()) ||
-      d.merchant.toLowerCase().includes(search.toLowerCase());
+  const filteredData = AppData.disputes.filter(d => {
     const matchStatus = status === 'All Status' || d.status === status;
     const matchReason = reason === 'All Reasons' || d.reason === reason;
-    return matchSearch && matchStatus && matchReason;
+    const matchNetwork = network === 'All' || d.network === network;
+    return matchStatus && matchReason && matchNetwork;
   });
 
-  const totalAmount = filtered.reduce((s, d) => s + d.amount, 0);
-  const openCount = filtered.filter(d => !['Case Won', 'Case Closed'].includes(d.status)).length;
-  const wonCount = filtered.filter(d => d.status === 'Case Won').length;
+  const state = useDataTableState({
+    data: filteredData,
+    searchPredicate: (d, q) =>
+      d.holder.toLowerCase().includes(q) ||
+      d.id.toLowerCase().includes(q) ||
+      d.case.toLowerCase().includes(q) ||
+      d.merchant.toLowerCase().includes(q),
+  });
+
+  function handleReset() {
+    setStatus('All Status');
+    setReason('All Reasons');
+    setNetwork('All');
+    setDateRange('Last 30 days');
+    state.setSearch('');
+  }
+
+  const totalAmount = state.rows.reduce((s, d) => s + d.amount, 0);
+  const openCount = state.rows.filter(d => !['Case Won', 'Case Closed'].includes(d.status)).length;
+  const wonCount = state.rows.filter(d => d.status === 'Case Won').length;
 
   return (
     <div className="content-inner fade-in" data-screen-label="Disputes List">
@@ -38,7 +95,6 @@ function DisputeList({ navigate }) {
           <h1 className="page-title">Disputes</h1>
           <div className="page-subtitle">Cardholder disputes and chargebacks · As of 04/29/2024</div>
         </div>
-        <button className="btn btn-primary"><Icon name="plus" size={14} />File Dispute</button>
       </div>
 
       <div className="grid-3">
@@ -47,73 +103,105 @@ function DisputeList({ navigate }) {
         <SmallStat label="Cases Won (last 30d)" value={wonCount} icon="shield" tone="green" />
       </div>
 
-      <div className="card" style={{ padding: 16 }}>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <FilterField label="Status" style={{ width: 200 }}>
+      <DataTableFilters>
+        <DataTableFilterField>
+          <DataTableFilterLabel>Status</DataTableFilterLabel>
+          <div className="select">
             <select value={status} onChange={e => setStatus(e.target.value)}>
               <option>All Status</option>
-              <option>Pending Customer</option><option>Submitted</option><option>Representment</option>
+              <option>Received</option><option>Pending Customer</option><option>Submitted</option><option>Representment</option>
               <option>Prearbitration</option><option>Arbitration</option><option>Case Won</option><option>Case Closed</option>
             </select>
-          </FilterField>
-          <FilterField label="Reason" style={{ width: 220 }}>
+          </div>
+        </DataTableFilterField>
+        <DataTableFilterField>
+          <DataTableFilterLabel>Reason</DataTableFilterLabel>
+          <div className="select">
             <select value={reason} onChange={e => setReason(e.target.value)}>
               <option>All Reasons</option>
               {[...new Set(AppData.disputes.map(d => d.reason))].map(r => <option key={r}>{r}</option>)}
             </select>
-          </FilterField>
-          <FilterField label="Network" style={{ width: 160 }}>
-            <select defaultValue="All"><option>All</option><option>Visa</option><option>Mastercard</option></select>
-          </FilterField>
-          <FilterField label="Date" style={{ width: 200 }}>
-            <select defaultValue="Last 30 days"><option>Last 30 days</option><option>Last 90 days</option><option>Year-to-date</option></select>
-          </FilterField>
-          <div style={{ flex: 1 }} />
-          <button className="btn btn-ghost" onClick={() => { setSearch(''); setStatus('All Status'); setReason('All Reasons'); }}>Reset</button>
-          <button className="btn btn-primary">Search</button>
-        </div>
-      </div>
-
-      <div className="card" style={{ padding: 0 }}>
-        <div className="table-toolbar" style={{ padding: '16px 20px 0' }}>
-          <h2>Dispute List <span style={{ color: 'var(--fta-text-3)', fontWeight: 400, fontSize: 13, marginLeft: 6 }}>({filtered.length})</span></h2>
-          <div className="right">
-            <div className="input" style={{ width: 360 }}>
-              <Icon name="search" className="ico" />
-              <input placeholder="Search case, card holder, merchant" value={search} onChange={e => setSearch(e.target.value)} />
-            </div>
-            <button className="btn btn-sm btn-ghost"><Icon name="download" size={12} />Export</button>
           </div>
-        </div>
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Case</th><th>Card Holder</th><th>Card</th><th>Merchant</th><th>Reason</th>
-              <th style={{ textAlign: 'right' }}>Amount</th><th>Filed</th><th>Status</th><th style={{ textAlign: 'right' }}>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map(d => (
-              <tr key={d.id} className="--clickable" onClick={() => navigate('dispute-detail', d.id)}>
-                <td className="mono" style={{ fontWeight: 500, color: 'var(--fta-primary-6)' }}>{d.case}</td>
-                <td><div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><ColorAvatar name={d.holder} size="sm" /><span>{d.holder}</span></div></td>
-                <td><div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><NetworkMark network={d.network} /><span className="mono">{d.card}</span></div></td>
-                <td>{d.merchant}</td>
-                <td><span style={{ fontSize: 12, color: 'var(--fta-text-4)' }}>{d.reason}</span></td>
-                <td style={{ textAlign: 'right', fontWeight: 500 }}>${d.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                <td className="muted">{d.filed}</td>
-                <td><StatusPill status={d.status} /></td>
-                <td style={{ textAlign: 'right' }}>
-                  <button className="btn btn-sm btn-ghost" onClick={e => { e.stopPropagation(); navigate('dispute-detail', d.id); }}>
-                    <Icon name="eye" size={12} />View
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <div className="table-foot"><span>Total {filtered.length} items</span><Pager /></div>
-      </div>
+        </DataTableFilterField>
+        <DataTableFilterField>
+          <DataTableFilterLabel>Network</DataTableFilterLabel>
+          <div className="select">
+            <select value={network} onChange={e => setNetwork(e.target.value)}>
+              <option>All</option><option>Visa</option><option>Mastercard</option>
+            </select>
+          </div>
+        </DataTableFilterField>
+        <DataTableFilterField>
+          <DataTableFilterLabel>Date</DataTableFilterLabel>
+          <div className="select">
+            <select
+              value={dateRange}
+              onChange={e => { setDateRange(e.target.value); showToast('Date filter is not connected in this mock dataset.'); }}
+            >
+              <option>Last 30 days</option><option>Last 90 days</option><option>Year-to-date</option>
+            </select>
+          </div>
+        </DataTableFilterField>
+        <DataTableFilterActions onReset={handleReset} onSearch={() => showToast('Filters applied.')} />
+      </DataTableFilters>
+      <div className="filter-divider" />
+
+      <StandardDataTable
+        title="Dispute List"
+        search={{
+          value: state.search,
+          onChange: state.setSearch,
+          placeholder: 'Search case, card holder, merchant',
+        }}
+        actions={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button className="btn btn-sm btn-ghost" onClick={() => showToast('Export is not wired up in this mock.')}>
+              <Icon name="download" size={12} />Export
+            </button>
+            <Button onClick={() => navigate('create-dispute')}>
+              <Icon name="plus" size={14} />File Dispute
+            </Button>
+          </div>
+        }
+        state={state}
+        tableProps={{ widthBehavior: 'fill', showColumnBorders: false }}
+        header={
+          <TableHeader>
+            <TableRow>
+              <TableHead columnId="dispute-case">Case</TableHead>
+              <TableHead columnId="dispute-holder">Card Holder</TableHead>
+              <TableHead columnId="dispute-card">Card</TableHead>
+              <TableHead columnId="dispute-merchant">Merchant</TableHead>
+              <TableHead columnId="dispute-reason">Reason</TableHead>
+              <TableHead columnId="dispute-amount" style={{ textAlign: 'right' }}>Amount</TableHead>
+              <TableHead columnId="dispute-filed">Filed</TableHead>
+              <TableHead columnId="dispute-status">Status</TableHead>
+              <TableActionHead />
+            </TableRow>
+          </TableHeader>
+        }
+        renderRows={(s) =>
+          s.pageRows.map((d) => (
+            <TableRow key={d.id} className="cursor-pointer" onClick={() => navigate('dispute-detail', d.id)}>
+              <TableCell className="mono" style={{ fontWeight: 500, color: 'var(--fta-primary-6)' }}>{d.case}</TableCell>
+              <TableCell><div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><ColorAvatar name={d.holder} size="sm" /><span>{d.holder}</span></div></TableCell>
+              <TableCell><div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><NetworkMark network={d.network} /><span className="mono">{d.card}</span></div></TableCell>
+              <TableCell>{d.merchant}</TableCell>
+              <TableCell><span style={{ fontSize: 12, color: 'var(--fta-text-4)' }}>{d.reason}</span></TableCell>
+              <TableCell style={{ textAlign: 'right', fontWeight: 500 }}>${d.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+              <TableCell className="muted">{d.filed}</TableCell>
+              <TableCell><StatusPill status={d.status} /></TableCell>
+              <TableActionCell>
+                <button className="btn btn-sm btn-ghost" onClick={e => { e.stopPropagation(); navigate('dispute-detail', d.id); }}>
+                  <Icon name="eye" size={12} />View
+                </button>
+              </TableActionCell>
+            </TableRow>
+          ))
+        }
+        emptyState={<DataTableEmptyStateRow colSpan={9} />}
+      />
+      <ToastBanner message={toast} />
     </div>
   );
 }
@@ -121,6 +209,11 @@ function DisputeList({ navigate }) {
 function DisputeDetail({ dispute, navigate }) {
   const steps = AppData.disputeSteps;
   const stepIdx = dispute.step;
+  const [toast, showToast] = useToast();
+  const txnId = dispute.transactionId || pseudoTransactionId(dispute);
+  const networkClaimId = seededDigits(dispute.case, 'ncid', 8);
+  const primaryClaimId = seededDigits(dispute.case, 'pcid', 7);
+  const reasonCode = seededDigits(dispute.case, 'code', 4);
 
   return (
     <div className="content-inner fade-in">
@@ -133,8 +226,12 @@ function DisputeDetail({ dispute, navigate }) {
           <div className="page-subtitle">Case {dispute.case} · Filed {dispute.filed}</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-ghost"><Icon name="download" size={14} />Export</button>
-          <button className="btn btn-primary"><Icon name="edit" size={14} />Update Case</button>
+          <button className="btn btn-ghost" onClick={() => showToast('Export is not wired up in this mock.')}>
+            <Icon name="download" size={14} />Export
+          </button>
+          <button className="btn btn-primary" onClick={() => showToast('Update Case is not wired up in this mock.')}>
+            <Icon name="edit" size={14} />Update Case
+          </button>
         </div>
       </div>
 
@@ -176,23 +273,47 @@ function DisputeDetail({ dispute, navigate }) {
             <div className="card-section-title">General Details</div>
             <div className="grid-2" style={{ marginBottom: 16 }}>
               <Field label="Card Holder" value={dispute.holder} prefix={<ColorAvatar name={dispute.holder} size="sm" />} />
-              <Field label="Transaction ID" value="12345624-aa69-4cbc-a946-30d90181b621" />
+              <Field label="Transaction ID" value={txnId} />
             </div>
             <div className="grid-2" style={{ marginBottom: 16 }}>
               <Field label="Reason" value={dispute.reason.toUpperCase().replace(/ /g, '_')} />
               <Field label="Amount" value={`$ ${dispute.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} />
             </div>
-            <Field label="Customer Comments" value="The merchant charged me twice for the same item on 04/22. Returned the duplicate to my account but the dispute charge has not yet posted. Requesting a chargeback for the duplicate transaction." />
+            <div className="grid-2" style={{ marginBottom: 16 }}>
+              <Field label="Created By" value={dispute.createdBy || 'System'} />
+              <Field label="Created Date" value={dispute.createdDate || dispute.filed} />
+            </div>
+            <Field label="Customer Comments" value={dispute.customerComment || 'No comments were provided by the cardholder for this case.'} />
           </div>
+
+          {dispute.auditLog?.length > 0 && (
+            <div className="card">
+              <div className="card-section-title">Case Activity</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {dispute.auditLog.map(entry => (
+                  <div key={entry.id} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, padding: '8px 0', borderBottom: '1px solid var(--fta-line-3)' }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 500 }}>{entry.action}</div>
+                      <div style={{ fontSize: 12, color: 'var(--fta-text-4)', marginTop: 2 }}>{entry.detail}</div>
+                    </div>
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                      <div style={{ fontSize: 12, color: 'var(--fta-text-4)' }}>{entry.actor}</div>
+                      <div className="muted-2" style={{ fontSize: 11.5 }}>{entry.date}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="card">
             <div className="card-section-title">Network Details</div>
             <div className="grid-2" style={{ marginBottom: 16 }}>
-              <Field label="Network Claim ID" value="11000000" />
-              <Field label="Primary Claim ID" value="2000000" />
+              <Field label="Network Claim ID" value={networkClaimId} />
+              <Field label="Primary Claim ID" value={primaryClaimId} />
             </div>
             <div className="grid-2">
-              <Field label="Network Reason Code" value="4859" />
+              <Field label="Network Reason Code" value={reasonCode} />
               <Field label="Network" valueNode={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><NetworkMark network={dispute.network} />{dispute.network}</span>} />
             </div>
           </div>
@@ -208,15 +329,31 @@ function DisputeDetail({ dispute, navigate }) {
 
           <div className="card">
             <div className="card-section-title">Upload Evidences</div>
+            {dispute.evidence?.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+                {dispute.evidence.map(e => (
+                  <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 12, border: '1px solid var(--fta-line-3)', borderRadius: 8, padding: '10px 14px' }}>
+                    <Icon name="file" size={18} style={{ color: 'var(--fta-text-3)', flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.fileName}</div>
+                      <div style={{ fontSize: 11.5, color: 'var(--fta-text-3)' }}>{e.uploadedDate} · Uploaded by {e.source}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
             <div style={{ border: '1.5px dashed var(--fta-line-3)', borderRadius: 8, padding: 32, textAlign: 'center', color: 'var(--fta-text-3)' }}>
               <Icon name="upload" size={28} />
               <div style={{ marginTop: 8, fontSize: 14, color: 'var(--fta-text-5)' }}>Drag & drop evidence files here</div>
               <div style={{ fontSize: 12, marginTop: 4 }}>Receipts, screenshots, statements (PDF, JPG, PNG · 10 MB max)</div>
-              <button className="btn btn-outline btn-sm" style={{ marginTop: 14 }}>Browse Files</button>
+              <button className="btn btn-outline btn-sm" style={{ marginTop: 14 }} onClick={() => showToast('File upload is not wired up in this mock.')}>
+                Browse Files
+              </button>
             </div>
           </div>
         </div>
       </div>
+      <ToastBanner message={toast} />
     </div>
   );
 }

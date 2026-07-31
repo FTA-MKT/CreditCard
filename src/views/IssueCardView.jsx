@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { Icon } from '../components/Shell';
 import AppData from '../data/AppData';
+import { FormField } from '../components/forms/FormField';
+import { EnDateInput } from '../components/shared';
+import { parseMccCodes } from '../lib/validation/mcc';
 
 const STEPS = ['Choose Card Context', 'Card Information', 'Spending Limit Settings'];
 const STEP_META = ['Select program & sub-program', 'Cardholder & card details', 'Spending controls'];
@@ -67,10 +70,13 @@ export default function IssueCardView({ navigate, navParam }) {
   const subsByProg        = selectedProgId ? AppData.subPrograms.filter(s => s.programId === selectedProgId) : [];
   const derivedCardType   = selectedSub?.cardType || null;
   const cardTypeLabel     = derivedCardType === 'credit' ? 'Credit Card' : derivedCardType === 'debit' ? 'Debit Card' : null;
-  const financialAccount  = selectedSub?.financialAccountId
-    ? AppData.financialAccounts.find(a => a.id === selectedSub.financialAccountId) ?? null
-    : null;
-  const creditSettings    = financialAccount ?? selectedSub ?? null;
+  // Priority: new financialProductSnapshot → new id lookup → old financialAccountSnapshot → old id lookup → sub flattened fields
+  const financialProduct  = selectedSub?.financialProductSnapshot
+    ?? (selectedSub?.financialProductId ? AppData.financialProducts.find(a => a.id === selectedSub.financialProductId) ?? null : null)
+    ?? selectedSub?.financialAccountSnapshot
+    ?? (selectedSub?.financialAccountId ? AppData.financialProducts.find(a => a.id === selectedSub.financialAccountId) ?? null : null)
+    ?? null;
+  const creditSettings    = financialProduct ?? selectedSub ?? null;
   const selectedCardholder = cardholderId ? AppData.customers.find(c => c.id === cardholderId) : null;
 
   // ── Navigation helpers ──
@@ -87,7 +93,7 @@ export default function IssueCardView({ navigate, navParam }) {
   // ── MCC tag helpers ──
   function addMccTag(side) {
     const raw = side === 'deny' ? denyMccInput : allowMccInput;
-    const codes = raw.trim().split(/[\s,;]+/).filter(t => /^\d{4}$/.test(t));
+    const codes = parseMccCodes(raw);
     if (!codes.length) return;
     if (side === 'deny') { setDenyMccList(prev => [...new Set([...prev, ...codes])]); setDenyMccInput(''); }
     else                 { setAllowMccList(prev => [...new Set([...prev, ...codes])]); setAllowMccInput(''); }
@@ -119,7 +125,7 @@ export default function IssueCardView({ navigate, navParam }) {
     const exp = new Date();
     exp.setFullYear(exp.getFullYear() + 3);
     setExpirationDate(exp.toISOString().split('T')[0]);
-    setReissueMonths('3');
+    setReissueMonths('36');
     setPhysicalEnabled(true);
     setVirtualEnabled(false);
     setDenyMccList(['7995', '6051']);
@@ -135,6 +141,8 @@ export default function IssueCardView({ navigate, navParam }) {
     setTxnWeekly({ enabled: false, count: '' });
     setCategoryLimits([{ category: 'Dining', amount: '500' }]);
     setGeoLocations(['United States', 'Canada']);
+    setSubmitError('');
+    if (isContextMode) setStep(2);
   }
 
   // ── Validation ──
@@ -165,7 +173,7 @@ export default function IssueCardView({ navigate, navParam }) {
 
     const sub  = selectedSub;
     const prog = selectedProg;
-    const fa   = financialAccount;
+    const fa   = financialProduct;
     const cs   = creditSettings;
 
     const formFactors = [
@@ -204,8 +212,8 @@ export default function IssueCardView({ navigate, navParam }) {
         network:     sub.network,
         bin:         sub.bin,
         classification:       sub.classification,
-        financialAccountId:   sub.financialAccountId || null,
-        financialAccountSnapshot: fa ? { ...fa } : null,
+        financialProductId:       sub.financialProductId || sub.financialAccountId || null,
+        financialProductSnapshot: fa ? { ...fa } : null,
         creditMin:    cs?.creditMin   || null,
         creditMax:    cs?.creditMax   || null,
         purchaseApr:  cs?.purchaseApr || null,
@@ -217,6 +225,8 @@ export default function IssueCardView({ navigate, navParam }) {
           : null,
         artworkFront: sub.cardFrontArtwork || null,
         artworkBack:  sub.cardBackArtwork  || null,
+        rewardsEnabled: sub.rewardsEnabled || false,
+        rewardsProgram: sub.rewardsProgram ? { ...sub.rewardsProgram } : null,
       },
 
       spendingControls: {
@@ -294,12 +304,12 @@ export default function IssueCardView({ navigate, navParam }) {
             <Icon name="chev-right" size={12} style={{ opacity: 0.4 }} />
           </>
         )}
-        <span style={{ color: 'var(--fta-text-1)' }}>Create Card</span>
+        <span style={{ color: 'var(--fta-text-5)', fontWeight: 500 }}>Issue Card</span>
       </div>
 
       {/* Page title row */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-        <div className="page-title">Create Card</div>
+        <div className="page-title">Issue Card</div>
         <div style={{ display: 'flex', gap: 10 }}>
           {import.meta.env.DEV && (
             <button type="button" className="btn btn-ghost" onClick={fillDemoData} style={{ fontSize: 12, opacity: 0.75 }}>Fill Demo Data</button>
@@ -441,11 +451,11 @@ export default function IssueCardView({ navigate, navParam }) {
                     ['Network',           selectedSub.network],
                     ['BIN Prefix',        selectedSub.bin],
                     ['Classification',    selectedSub.classification],
-                    ['Financial Account', financialAccount?.name || (selectedSub.financialAccountId ?? 'Not configured')],
+                    ['Financial Product', financialProduct?.name || (selectedSub.financialProductId ?? selectedSub.financialAccountId ?? 'Not configured')],
                   ].map(([label, value]) => (
                     <div key={label}>
                       <div style={{ fontSize: 11, color: 'var(--fta-text-3)', marginBottom: 2 }}>{label}</div>
-                      <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--fta-text-1)' }}>{value || '—'}</div>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--fta-text-5)' }}>{value || '—'}</div>
                     </div>
                   ))}
                 </div>
@@ -477,7 +487,7 @@ export default function IssueCardView({ navigate, navParam }) {
                     ].map(([label, value]) => (
                       <div key={label}>
                         <div style={{ fontSize: 11, color: 'var(--fta-text-3)', marginBottom: 2 }}>{label}</div>
-                        <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--fta-text-1)' }}>{value || '—'}</div>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--fta-text-5)' }}>{value || '—'}</div>
                       </div>
                     ))}
                   </div>
@@ -493,8 +503,8 @@ export default function IssueCardView({ navigate, navParam }) {
 
               <div style={{ display: 'flex', gap: 18, marginBottom: 18 }}>
                 <FormField label="Expiration Date" required>
-                  <div className="input">
-                    <input type="date" value={expirationDate} onChange={e => setExpirationDate(e.target.value)} />
+                  <div className="input" style={{ position: 'relative' }}>
+                    <EnDateInput value={expirationDate} onChange={e => setExpirationDate(e.target.value)} />
                   </div>
                 </FormField>
                 <FormField label="Reissue Months" required>
@@ -749,20 +759,9 @@ function SuccessScreen({ card, navigate, fromParam, selectedSubId }) {
 
 const navBtnStyle = { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fta-text-3)', fontSize: 13, padding: 0 };
 
-function FormField({ label, required, style, children }) {
-  return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', ...style }}>
-      <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--fta-text-4)', marginBottom: 5 }}>
-        {label}{required && <span style={{ color: 'var(--fta-error)', marginLeft: 2 }}>*</span>}
-      </div>
-      {children}
-    </div>
-  );
-}
-
 function ReadonlyBox({ children }) {
   return (
-    <div style={{ background: 'var(--fta-fill-2)', border: '1.5px solid var(--fta-line-2)', borderRadius: 6, padding: '10px 14px', fontSize: 13, color: 'var(--fta-text-1)', fontWeight: 500 }}>
+    <div style={{ background: 'var(--fta-fill-2)', border: '1.5px solid var(--fta-line-2)', borderRadius: 6, padding: '10px 14px', fontSize: 13, color: 'var(--foreground)', fontWeight: 500 }}>
       {children || '—'}
     </div>
   );

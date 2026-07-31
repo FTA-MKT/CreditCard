@@ -29,26 +29,45 @@ export default function CreateCreditCardProgramView({ navigate }) {
 
   function fillDemoData() {
     setProgName(`Test Program ${Date.now()}`);
+    setDescription('Demo rewards program for testing program creation flows.');
     setBusinessName('Demo Business Corp.');
     setBusinessAccount('Finbank Credit Account 8888');
     setIndustry('Financial Services');
+    setCompanySize('51-200 employees');
     setContactName('Jane Demo');
     setContactPhone('+1 (555) 000-1234');
+    setContactEmail('jane.demo@example.com');
+    setContactAddress('123 Demo St, San Jose, CA 95110');
     setManagerName('John Demo');
     setManagerPhone('+1 (555) 000-5678');
+    setManagerEmail('john.demo@fintechautomation.com');
+    setManagerAddress('456 Manager Ave, San Jose, CA 95110');
+  }
+
+  function validateStep2() {
+    if (!businessName.trim()) return 'Business Name is required.';
+    if (!businessAccount.trim()) return 'Business Account is required.';
+    if (!industry) return 'Industry is required.';
+    if (!contactName.trim()) return 'Contact Name is required.';
+    if (!contactPhone.trim()) return 'Contact Phone is required.';
+    if (!managerName.trim()) return 'Account Manager Name is required.';
+    if (!managerPhone.trim()) return 'Account Manager Phone is required.';
+    return '';
   }
 
   function handleSubmit() {
     if (!progName.trim()) { setSubmitError('Program Name is required. Please go back to Step 1.'); return; }
+    const step2Error = validateStep2();
+    if (step2Error) { setSubmitError(step2Error); return; }
     setSubmitError('');
     const maxNum = AppData.programs.reduce((m, p) => {
-      const n = parseInt((p.id || '').replace('P-', ''), 10);
+      const n = parseInt((p.id || '').replace(/^PRG-/, ''), 10);
       return isNaN(n) ? m : Math.max(m, n);
     }, 0);
     const today = new Date();
     const mm = String(today.getMonth() + 1).padStart(2, '0');
     const dd = String(today.getDate()).padStart(2, '0');
-    const newId = 'P-' + String(maxNum + 1).padStart(3, '0');
+    const newId = 'PRG-' + String(maxNum + 1).padStart(3, '0');
     AppData.programs.unshift({
       id: newId,
       name: progName.trim(),
@@ -201,8 +220,15 @@ export default function CreateCreditCardProgramView({ navigate }) {
               </div>
             </div>
 
+            {submitError && step === 1 && (
+              <div style={{color:'#e53e3e',fontSize:13,background:'#fff5f5',border:'1px solid #fed7d7',borderRadius:7,padding:'9px 14px',marginTop:14}}>{submitError}</div>
+            )}
             <div className="cp-btn-row">
-              <button className="btn btn-primary" onClick={() => goStep(2)}>Next</button>
+              <button className="btn btn-primary" onClick={() => {
+                if (!progName.trim()) { setSubmitError('Program Name is required.'); return; }
+                setSubmitError('');
+                goStep(2);
+              }}>Next</button>
             </div>
           </div>
         )}

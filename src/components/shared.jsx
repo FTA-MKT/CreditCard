@@ -5,6 +5,7 @@ export { Pager }          from './ui/Pager';
 export { SmallStat }      from './ui/SmallStat';
 export { Toggle }         from './ui/Toggle';
 export { Checkbox }       from './ui/Checkbox';
+export { EnDateInput }    from './ui/DateInput';
 export { CreditCardArt, buildCardsForCustomer } from './business-components/CreditCardArt';
 export { NetworkMark }    from './business-components/NetworkMark';
 export { ProgramLogo }    from './business-components/ProgramLogo';

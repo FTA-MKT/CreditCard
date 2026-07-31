@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Icon, StatusPill, Breadcrumb } from '../components/Shell';
 import { ColorAvatar, Field, NetworkMark } from '../components/shared';
 import AppData from '../data/AppData';
@@ -28,6 +28,21 @@ function getCardDetailVisual(card) {
     decoAlpha2:  isCredit || hasArtwork ? 'rgba(255,255,255,0.05)' : 'rgba(29,33,41,0.04)',
     badgeBg:     hasArtwork ? 'rgba(0,0,0,0.35)' : (isCredit ? 'rgba(255,255,255,0.2)' : 'rgba(29,33,41,0.1)'),
   };
+}
+
+function getConversionRate(rp) {
+  if (Array.isArray(rp?.redemptionMethods)) {
+    const sc = rp.redemptionMethods.find(m => m.type === 'statement_credit' && m.enabled);
+    if (sc?.conversion) return sc.conversion.amount / sc.conversion.points;
+  }
+  return rp?.conversionRate ?? 0.01;
+}
+function getMinPts(rp) {
+  if (Array.isArray(rp?.redemptionMethods)) {
+    const sc = rp.redemptionMethods.find(m => m.type === 'statement_credit' && m.enabled);
+    if (sc?.minimumIncrement) return sc.minimumIncrement;
+  }
+  return rp?.minimumRedemptionIncrement ?? 500;
 }
 
 function DetailSection({ title, children }) {
@@ -76,6 +91,9 @@ function SpendingControlsSummary({ sc }) {
 }
 
 export default function CardDetailView({ navigate, navParam }) {
+  const [showRedeemModal, setShowRedeemModal] = useState(false);
+  const [redeemSuccess, setRedeemSuccess] = useState(false);
+
   const card = AppData.cards.find(c => c.id === navParam?.cardId);
 
   if (!card) {
@@ -116,9 +134,35 @@ export default function CardDetailView({ navigate, navParam }) {
   const programName = snap.programName || '—';
   const subName     = snap.name        || '—';
 
+  const linkedSub = AppData.subPrograms.find(s => s.id === (card.subprogramId || snap.id));
+  const rewardsProgram = snap.rewardsProgram ?? linkedSub?.rewardsProgram ?? null;
+  const rewardsEnabled = snap.rewardsEnabled ?? linkedSub?.rewardsEnabled ?? !!rewardsProgram;
+
   return (
     <div className="content-inner fade-in">
-      <Breadcrumb navigate={navigate} items={[{ label: 'Cards', route: 'cards' }, { label: `Card ···· ${last4}` }]} />
+      {(() => {
+        if (navParam?.from === 'customer-cardholder-cards') {
+          const customerId   = navParam.customerId;
+          const customerName = navParam.customerName
+            || AppData.customers.find(c => c.id === card.cardholderId)?.name
+            || 'Card Holder';
+          const backParam = { id: customerId, activeTab: 'cards' };
+          return (
+            <Breadcrumb navigate={navigate} items={[
+              { label: 'Customers',  route: 'customers' },
+              { label: customerName, route: 'customer-detail', param: backParam },
+              { label: 'Cards',      route: 'customer-detail', param: backParam },
+              { label: `Card ···· ${last4}` },
+            ]} />
+          );
+        }
+        return (
+          <Breadcrumb navigate={navigate} items={[
+            { label: 'Cards', route: 'cards' },
+            { label: `Card ···· ${last4}` },
+          ]} />
+        );
+      })()}
 
       <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 20, alignItems: 'start' }}>
 
@@ -282,6 +326,157 @@ export default function CardDetailView({ navigate, navParam }) {
             <SpendingControlsSummary sc={card.spendingControls} />
           </DetailSection>
 
+          {/* Rewards Account */}
+          {(() => {
+            const ra = AppData.rewardAccounts?.find(r => r.cardId === card.id);
+            const cfg = AppData.rewardsConfigurations?.find(c => c.subprogramId === card.subprogramId);
+            const linkedSubRp = AppData.subPrograms.find(s => s.id === card.subprogramId);
+            const rp = cfg || (linkedSubRp?.rewardsProgram?.programName ? linkedSubRp.rewardsProgram : null);
+
+            if (!ra && !rp) {
+              return (
+                <DetailSection title="Rewards Account">
+                  <div style={{ fontSize: 13, color: 'var(--fta-text-3)' }}>No rewards program configured on the parent sub-program.</div>
+                </DetailSection>
+              );
+            }
+
+            const activities = (AppData.rewardActivities || [])
+              .filter(a => a.rewardAccountId === ra?.id)
+              .sort((a, b) => new Date(b.date) - new Date(a.date))
+              .slice(0, 5);
+
+            const minPts = getMinPts(rp);
+
+            return (
+              <div className="card" style={{ padding: 20 }}>
+                <h3 style={{ margin: '0 0 16px', fontSize: 13, fontWeight: 600, color: '#1D2129' }}>Rewards Account</h3>
+
+                {/* Program name + status */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: 'var(--fta-text-3)', marginBottom: 2 }}>Program</div>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>{rp?.programName || '—'}</div>
+                  </div>
+                  {ra?.status && (
+                    <span style={{
+                      fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 10,
+                      background: ra.status === 'active' ? '#c6f6d5' : 'var(--fta-fill-3)',
+                      color: ra.status === 'active' ? '#276749' : 'var(--fta-text-3)',
+                    }}>
+                      {ra.status.charAt(0).toUpperCase() + ra.status.slice(1)}
+                    </span>
+                  )}
+                </div>
+
+                {ra && (
+                  <>
+                    {/* Balance grid */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+                      <div style={{ padding: '12px 14px', background: 'var(--fta-fill-2)', borderRadius: 8 }}>
+                        <div style={{ fontSize: 11, color: 'var(--fta-text-3)', marginBottom: 4 }}>Total Points</div>
+                        <div style={{ fontSize: 18, fontWeight: 700 }}>{ra.totalPoints.toLocaleString()}</div>
+                        <div style={{ fontSize: 11, color: 'var(--fta-text-3)', marginTop: 2 }}>posted balance</div>
+                      </div>
+                      <div style={{ padding: '12px 14px', background: 'var(--fta-fill-2)', borderRadius: 8 }}>
+                        <div style={{ fontSize: 11, color: 'var(--fta-text-3)', marginBottom: 4 }}>Est. Credit Value</div>
+                        <div style={{ fontSize: 18, fontWeight: 700 }}>${ra.estimatedCreditValue.toFixed(2)}</div>
+                        <div style={{ fontSize: 11, color: 'var(--fta-text-3)', marginTop: 2 }}>@ ${getConversionRate(rp).toFixed(2)} / pt</div>
+                      </div>
+                      <div style={{ padding: '12px 14px', background: 'var(--fta-fill-2)', borderRadius: 8 }}>
+                        <div style={{ fontSize: 11, color: 'var(--fta-text-3)', marginBottom: 4 }}>Pending</div>
+                        <div style={{ fontSize: 16, fontWeight: 600 }}>{ra.pendingPoints.toLocaleString()} pts</div>
+                        <div style={{ fontSize: 11, color: 'var(--fta-text-3)', marginTop: 2 }}>awaiting settlement</div>
+                      </div>
+                      <div style={{ padding: '12px 14px', background: 'var(--fta-fill-2)', borderRadius: 8 }}>
+                        <div style={{ fontSize: 11, color: 'var(--fta-text-3)', marginBottom: 4 }}>Cycle Earned</div>
+                        <div style={{ fontSize: 16, fontWeight: 600 }}>{ra.cycleEarnedPoints.toLocaleString()} pts</div>
+                        <div style={{ fontSize: 11, color: 'var(--fta-text-3)', marginTop: 2 }}>current cycle</div>
+                      </div>
+                    </div>
+
+                    {/* Billing cycle */}
+                    <div style={{ display: 'flex', gap: 20, marginBottom: 16, fontSize: 12 }}>
+                      <span><span style={{ color: 'var(--fta-text-3)' }}>Cycle: </span><span style={{ fontWeight: 500 }}>{ra.billingCycleOpen}</span><span style={{ color: 'var(--fta-text-3)' }}> – </span><span style={{ fontWeight: 500 }}>{ra.billingCycleClose}</span></span>
+                    </div>
+
+                    {/* Recent activity */}
+                    {activities.length > 0 && (
+                      <>
+                        <hr style={{ border: 'none', borderTop: '1px solid var(--fta-line-3)', margin: '0 0 14px' }} />
+                        <div style={{ fontSize: 11, color: 'var(--fta-text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 10 }}>Recent Activity</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+                          {activities.map(act => {
+                            const isRedeemed = act.type === 'redeemed';
+                            const isAdjusted = act.type === 'adjusted';
+                            const ptsStr = (act.points > 0 ? '+' : '') + act.points.toLocaleString() + ' pts';
+                            const ptColor = isRedeemed ? '#ef4444' : isAdjusted ? '#f97316' : '#16a34a';
+                            const iconBg   = isRedeemed ? '#fef2f2' : isAdjusted ? '#fff7ed' : '#f0fdf4';
+                            const iconChar = isRedeemed ? '↩' : isAdjusted ? '⚡' : '★';
+                            return (
+                              <div key={act.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                                <div style={{ width: 28, height: 28, borderRadius: 7, background: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 12 }}>
+                                  {iconChar}
+                                </div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                                    <span style={{ fontSize: 12.5, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }}>{act.description}</span>
+                                    <span style={{ fontSize: 12.5, fontWeight: 700, color: ptColor, marginLeft: 8, flexShrink: 0 }}>{ptsStr}</span>
+                                  </div>
+                                  <div style={{ display: 'flex', gap: 8, marginTop: 2, flexWrap: 'wrap' }}>
+                                    <span style={{ fontSize: 11, color: 'var(--fta-text-3)' }}>{act.date}</span>
+                                    <span style={{ fontSize: 11, color: 'var(--fta-text-3)' }}>{act.ruleName}</span>
+                                    <span style={{
+                                      fontSize: 10, padding: '1px 6px', borderRadius: 6, fontWeight: 600,
+                                      background: act.status === 'pending' ? '#fff7ed' : 'var(--fta-fill-3)',
+                                      color: act.status === 'pending' ? '#c05621' : 'var(--fta-text-3)',
+                                    }}>{act.status}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+
+                    {/* Redemption */}
+                    <hr style={{ border: 'none', borderTop: '1px solid var(--fta-line-3)', margin: '0 0 14px' }} />
+                    <div style={{ fontSize: 11, color: 'var(--fta-text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 10 }}>Redemption</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {/* Statement Credit */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--fta-fill-2)', borderRadius: 8 }}>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 500 }}>Statement Credit</div>
+                          <div style={{ fontSize: 11.5, color: 'var(--fta-text-3)', marginTop: 2 }}>
+                            {ra.totalPoints >= minPts
+                              ? `${ra.totalPoints.toLocaleString()} pts ≈ $${ra.estimatedCreditValue.toFixed(2)}`
+                              : `Minimum ${minPts.toLocaleString()} pts required`}
+                          </div>
+                        </div>
+                        <button
+                          className="btn btn-primary btn-sm"
+                          disabled={ra.totalPoints < minPts}
+                          onClick={() => setShowRedeemModal(true)}
+                        >
+                          Redeem
+                        </button>
+                      </div>
+                      {/* External — coming soon */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--fta-fill-2)', borderRadius: 8, opacity: 0.55 }}>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--fta-text-3)' }}>External Redemption</div>
+                          <div style={{ fontSize: 11.5, color: 'var(--fta-text-3)', marginTop: 2 }}>Transfer to bank or partner accounts</div>
+                        </div>
+                        <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 10, background: 'var(--fta-fill-3)', color: 'var(--fta-text-3)' }}>Coming soon</span>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })()}
+
           {snap.customerServiceSnapshot && (
             <DetailSection title="Customer Service">
               <div className="grid-2">
@@ -295,6 +490,80 @@ export default function CardDetailView({ navigate, navParam }) {
           )}
         </div>
       </div>
+
+      {/* Redemption confirmation modal */}
+      {showRedeemModal && (() => {
+        const ra = AppData.rewardAccounts?.find(r => r.cardId === card.id);
+        const cfg = AppData.rewardsConfigurations?.find(c => c.subprogramId === card.subprogramId);
+        const linkedSubRp2 = AppData.subPrograms.find(s => s.id === card.subprogramId);
+        const rp2 = cfg || (linkedSubRp2?.rewardsProgram?.programName ? linkedSubRp2.rewardsProgram : null);
+        const rate = getConversionRate(rp2);
+        const creditVal = ra ? (ra.totalPoints * rate).toFixed(2) : '0.00';
+
+        function handleConfirmRedeem() {
+          if (!ra) return;
+          const pts = ra.totalPoints;
+          AppData.redemptions.push({
+            id: 'RDMP-' + String(AppData.redemptions.length + 2).padStart(3, '0'),
+            rewardAccountId: ra.id,
+            cardholderId: card.cardholderId,
+            type: 'statement_credit',
+            pointsRedeemed: pts,
+            creditValue: parseFloat(creditVal),
+            requestedAt: new Date().toISOString(),
+            appliedAt: null,
+            status: 'pending',
+          });
+          AppData.rewardActivities.push({
+            id: 'RACT-' + String(AppData.rewardActivities.length + 1).padStart(3, '0'),
+            rewardAccountId: ra.id,
+            type: 'redeemed',
+            ruleId: null,
+            ruleName: 'Statement Credit Redemption',
+            points: -pts,
+            status: 'pending',
+            date: new Date().toISOString().slice(0, 10),
+            description: 'Statement credit redemption',
+            transactionAmount: null,
+          });
+          ra.totalPoints = 0;
+          ra.estimatedCreditValue = 0;
+          setShowRedeemModal(false);
+          setRedeemSuccess(true);
+          setTimeout(() => setRedeemSuccess(false), 4000);
+        }
+
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ background: '#fff', borderRadius: 14, padding: 28, maxWidth: 440, width: '90%', boxShadow: '0 16px 48px rgba(0,0,0,0.2)' }}>
+              <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8, color: '#1D2129' }}>Confirm Redemption</div>
+              <div style={{ fontSize: 13, color: 'var(--fta-text-3)', marginBottom: 20, lineHeight: 1.65 }}>
+                You are about to redeem <strong style={{ color: '#1D2129' }}>{ra?.totalPoints.toLocaleString()} points</strong> for a statement credit of <strong style={{ color: '#1D2129' }}>${creditVal}</strong>.
+              </div>
+              <div style={{ padding: '12px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, fontSize: 12.5, color: '#92400e', marginBottom: 20, lineHeight: 1.55 }}>
+                This redemption will be applied as a statement credit and cannot be undone.
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                <button className="btn btn-ghost" onClick={() => setShowRedeemModal(false)}>Cancel</button>
+                <button className="btn btn-primary" onClick={handleConfirmRedeem}>Confirm Redemption</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Success toast */}
+      {redeemSuccess && (
+        <div style={{ position: 'fixed', bottom: 28, right: 28, zIndex: 9999, background: '#fff', border: '1px solid #c6f6d5', borderRadius: 12, padding: '14px 20px 14px 16px', boxShadow: '0 8px 32px rgba(0,0,0,.14)', display: 'flex', alignItems: 'center', gap: 12, minWidth: 300 }}>
+          <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#c6f6d5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#276749" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div>
+            <div style={{ fontSize: 13.5, fontWeight: 600, color: '#1a1a2e' }}>Redemption submitted</div>
+            <div style={{ fontSize: 12, color: '#718096', marginTop: 2 }}>Statement credit will appear in the next billing cycle.</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

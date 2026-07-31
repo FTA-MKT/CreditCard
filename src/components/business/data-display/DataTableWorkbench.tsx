@@ -15,6 +15,12 @@ import { cn } from "@/lib/utils";
 type DataTableWorkbenchBaseProps = Omit<TableWorkbenchProps, "children"> & {
   children: React.ReactNode;
   surfaceClassName?: string;
+  // "embedded" drops TableSurface's border/background/shadow — use it when the
+  // children are already visually self-contained (e.g. a grid of bordered
+  // cards), so the page doesn't end up with a card-inside-a-card box. Leave as
+  // "default" for real tabular content, where the surface border is the
+  // table's own frame.
+  surfaceVariant?: "default" | "embedded";
   footerClassName?: string;
 };
 
@@ -80,15 +86,19 @@ export function DataTableFilterField({
   );
 }
 
-// Standardised label for filter fields — always text-sm text-muted-foreground.
+// Standardised label for filter fields — matches the Program page reference:
+// 12px / 500 weight / var(--fta-text-4). Kept as inline style rather than a
+// Tailwind utility so it stays byte-identical to the reference across themes.
 export function DataTableFilterLabel({
   className,
+  style,
   ...props
 }: React.ComponentProps<"span">) {
   return (
     <span
       data-slot="data-table-filter-label"
-      className={cn("text-sm text-muted-foreground", className)}
+      className={className}
+      style={{ fontSize: 12, fontWeight: 500, color: "var(--fta-text-4)", ...style }}
       {...props}
     />
   );
@@ -116,6 +126,7 @@ export function DataTableWorkbench(props: DataTableWorkbenchProps) {
     actions,
     className,
     surfaceClassName,
+    surfaceVariant,
     footerClassName,
     footer,
   } = props;
@@ -153,7 +164,7 @@ export function DataTableWorkbench(props: DataTableWorkbenchProps) {
       actions={actions}
       className={className}
     >
-      <TableSurface className={surfaceClassName}>
+      <TableSurface className={surfaceClassName} variant={surfaceVariant}>
         {children}
         {footerContent}
       </TableSurface>

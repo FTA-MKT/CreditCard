@@ -1,16 +1,14 @@
 import React, { useState } from 'react';
 import { Icon } from '../components/Shell';
 import AppData from '../data/AppData';
+import { FormField } from '../components/forms/FormField';
+import { AccordionSection as Accordion } from '../components/forms/AccordionSection';
+import { RadioGroup } from '../components/forms/RadioGroup';
+import { CARD_MATERIAL_PRICES } from '../components/forms/constants';
+import { ArtworkPreview } from '../components/forms/ArtworkPreview';
+
 
 const STEPS = ['General Information', 'Card Setting', 'Spending Limit Setting'];
-
-const CARD_MATERIAL_PRICES = {
-  'Standard PVC': 1.25,
-  'Recycled PVC': 1.65,
-  'Metal': 8.50,
-  'Premium Metal': 12.00,
-  'Eco Composite': 2.10,
-};
 
 export default function CreateSubProgramView({ navigate, programId }) {
   const programObj = programId ? AppData.programs.find(p => p.id === programId) : null;
@@ -36,9 +34,9 @@ export default function CreateSubProgramView({ navigate, programId }) {
   const [usageType, setUsageType] = useState('');
   const [classification, setClassification] = useState('Consumer');
   const [validPeriod, setValidPeriod] = useState('');
-  const [financialAccountId, setFinancialAccountId] = useState('');
-  const selectedFinancialAccount = financialAccountId
-    ? AppData.financialAccounts.find(a => a.id === financialAccountId) ?? null
+  const [financialProductId, setFinancialProductId] = useState('');
+  const selectedFinancialProduct = financialProductId
+    ? AppData.financialProducts.find(a => a.id === financialProductId) ?? null
     : null;
 
   // Customer Service
@@ -60,20 +58,19 @@ export default function CreateSubProgramView({ navigate, programId }) {
 
   // Rewards Program
   const [rewardEnabled, setRewardEnabled] = useState(false);
-  const [rewardName, setRewardName] = useState('');
-  const [rewardType, setRewardType] = useState('');
-  const [rewardDescription, setRewardDescription] = useState('');
-  const [earnRate, setEarnRate] = useState('');
-  const [spendRule, setSpendRule] = useState('');
-  const [spendMin, setSpendMin] = useState('');
-  const [spendMax, setSpendMax] = useState('');
-  const [mccTags, setMccTags] = useState([]);
-  const [mccInput, setMccInput] = useState('');
-  const [rewardPeriod, setRewardPeriod] = useState('');
-  const [eventRule, setEventRule] = useState('');
-  const [redemptionOptions, setRedemptionOptions] = useState([]);
-  const [pointsExpiry, setPointsExpiry] = useState('');
-  const [redemptionThreshold, setRedemptionThreshold] = useState('');
+  const [rewardsProgramName, setRewardsProgramName] = useState('');
+  const [baseMultiplier, setBaseMultiplier] = useState('1');
+  const [accrualBasis, setAccrualBasis] = useState('purchase_based');
+  const [bonusCategories, setBonusCategories] = useState([
+    { key: 'Travel',    enabled: false, multiplier: '3', mccCodes: ['4511','4722','7011'], mccInput: '4511, 4722, 7011' },
+    { key: 'Dining',    enabled: false, multiplier: '2', mccCodes: ['5812','5813','5814'], mccInput: '5812, 5813, 5814' },
+    { key: 'Groceries', enabled: false, multiplier: '2', mccCodes: ['5411','5422','5912'], mccInput: '5411, 5422, 5912' },
+  ]);
+  const [postingTiming, setPostingTiming] = useState('after_clearing');
+  const [conversionPoints, setConversionPoints] = useState('1000');
+  const [conversionAmount, setConversionAmount] = useState('10.00');
+  const [minimumRedemptionIncrement, setMinimumRedemptionIncrement] = useState('1000');
+  const [rewardFieldErrors, setRewardFieldErrors] = useState({});
   const selectedLegalPkg = legalPkgId ? AppData.approvedLegalTermsPackages.find(p => p.id === legalPkgId) : null;
   const unitPrice = cardMaterial ? (CARD_MATERIAL_PRICES[cardMaterial] ?? null) : null;
   const cardQtyNum = parseInt(cardQuantity, 10);
@@ -96,6 +93,7 @@ export default function CreateSubProgramView({ navigate, programId }) {
 
   const [showSuccess, setShowSuccess] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [rewardError, setRewardError] = useState('');
 
   function goStep(n) {
     setStep(n);
@@ -106,7 +104,61 @@ export default function CreateSubProgramView({ navigate, programId }) {
     setOpenAcc(prev => ({ ...prev, [key]: !prev[key] }));
   }
 
+  function validateRewardsSection() {
+    if (!rewardEnabled) return { errors: {}, count: 0 };
+    const errors = {};
+    const name = rewardsProgramName.trim();
+    if (!name) {
+      errors.programName = 'Enter a rewards program name.';
+    } else if (name.length < 2 || name.length > 80) {
+      errors.programName = 'Enter a rewards program name between 2 and 80 characters.';
+    } else if (/[<>{}]/.test(name)) {
+      errors.programName = 'Program name cannot contain < > { } characters.';
+    }
+    const bm = parseFloat(baseMultiplier);
+    if (baseMultiplier === '' || isNaN(bm) || bm < 0 || bm > 10) {
+      errors.baseMultiplier = 'Enter a base earning rate between 0 and 10.';
+    }
+    bonusCategories.forEach((cat, idx) => {
+      if (!cat.enabled) return;
+      const bcat = parseFloat(cat.multiplier);
+      if (isNaN(bcat) || bcat < 0.01 || bcat > 20) errors[`bonusMult_${idx}`] = 'Enter a bonus multiplier between 0.01 and 20.';
+      if (cat.mccInput?.trim()) {
+        const codes = cat.mccInput.split(',').map(s => s.trim()).filter(Boolean);
+        for (const code of codes) {
+          if (code.includes('-')) {
+            const parts = code.split('-');
+            if (parts.length !== 2 || !/^\d{4}$/.test(parts[0]) || !/^\d{4}$/.test(parts[1]) || parseInt(parts[0]) >= parseInt(parts[1])) {
+              errors[`mcc_${idx}`] = 'Enter valid 4-digit MCC codes or ranges, such as 5812 or 3000-3999.'; break;
+            }
+          } else if (!/^\d{4}$/.test(code)) {
+            errors[`mcc_${idx}`] = 'Enter valid 4-digit MCC codes or ranges, such as 5812 or 3000-3999.'; break;
+          }
+        }
+      }
+    });
+    const cp = parseInt(conversionPoints, 10);
+    if (!conversionPoints || isNaN(cp) || cp < 1 || cp > 1000000 || String(cp) !== conversionPoints.trim()) {
+      errors.conversionPoints = 'Enter a whole number of points between 1 and 1,000,000.';
+    }
+    const ca = parseFloat(conversionAmount);
+    if (!conversionAmount || isNaN(ca) || ca < 0.01 || ca > 10000) {
+      errors.conversionAmount = 'Enter a valid amount between $0.01 and $10,000.00.';
+    }
+    const mi = parseInt(minimumRedemptionIncrement, 10);
+    if (!minimumRedemptionIncrement || isNaN(mi) || mi < 1 || String(mi) !== minimumRedemptionIncrement.trim()) {
+      errors.minimumRedemption = 'Enter a valid whole number of points.';
+    }
+    return { errors, count: Object.keys(errors).length };
+  }
+
   function saveAcc(key) {
+    if (key === 'reward') {
+      const { errors, count } = validateRewardsSection();
+      if (count > 0) { setRewardFieldErrors(errors); return; }
+      setRewardFieldErrors({});
+      setRewardError('');
+    }
     setAccDone(prev => ({ ...prev, [key]: true }));
     setOpenAcc(prev => ({ ...prev, [key]: false }));
   }
@@ -114,15 +166,19 @@ export default function CreateSubProgramView({ navigate, programId }) {
   function fillDemoData() {
     if (!programObj) setProgram(AppData.programs[0]?.id || '');
     setSubName(`Test Subprogram ${Date.now()}`);
+    setBizName('Demo Business Corp.');
+    setDesc('Demo sub-program for testing card product configuration.');
     setPhysicalEnabled(true);
+    setVirtualEnabled(false);
     setBinPrefix('441299');
     setNetwork('Visa');
     setUsageType('Multi-use');
     setValidPeriod('3 Years');
-    setFinancialAccountId(AppData.financialAccounts[0]?.id || '');
+    setFinancialProductId(AppData.financialProducts[0]?.id || '');
     setSvcName('Demo Card Service');
     setSvcPhone('+1 (555) 000-9999');
     setSvcEmail('support@demo.com');
+    setSvcHours('Mon–Fri 9:00 AM–6:00 PM EST');
     setCardFrontArtwork({ fileName: 'demo-card-front.png', fileType: 'image/png', width: 1012, height: 638, previewUrl: '', isDemo: true });
     setCardBackArtwork({ fileName: 'demo-card-back.png', fileType: 'image/png', width: 1012, height: 638, previewUrl: '', isDemo: true });
     setCardFrontError('');
@@ -131,17 +187,19 @@ export default function CreateSubProgramView({ navigate, programId }) {
     setCardQuantity('5000');
     setLegalPkgId(AppData.approvedLegalTermsPackages[0]?.id || '');
     setRewardEnabled(true);
-    setRewardName('Demo Cashback Rewards');
-    setRewardType('Cashback');
-    setRewardDescription('Demo rewards program for testing sub-program creation.');
-    setEarnRate('1.5% cashback');
-    setSpendRule('All Spend');
-    setRewardPeriod('Per Billing Cycle');
-    setEventRule('Transaction Settlement');
-    setMccTags([]);
-    setRedemptionOptions(['Statement Credit']);
-    setPointsExpiry('');
-    setRedemptionThreshold('$25');
+    setRewardsProgramName('Demo Rewards Program');
+    setBaseMultiplier('1');
+    setAccrualBasis('purchase_based');
+    setBonusCategories([
+      { key: 'Travel',    enabled: true,  multiplier: '3', mccCodes: ['4511','4722','7011'], mccInput: '4511, 4722, 7011' },
+      { key: 'Dining',    enabled: true,  multiplier: '2', mccCodes: ['5812','5813','5814'], mccInput: '5812, 5813, 5814' },
+      { key: 'Groceries', enabled: false, multiplier: '2', mccCodes: ['5411','5422','5912'], mccInput: '5411, 5422, 5912' },
+    ]);
+    setPostingTiming('after_clearing');
+    setConversionPoints('1000');
+    setConversionAmount('10.00');
+    setMinimumRedemptionIncrement('1000');
+    setRewardFieldErrors({});
     setOpenAcc({ card: true, reward: true, service: true, style: true, legal: true });
   }
 
@@ -199,25 +257,25 @@ export default function CreateSubProgramView({ navigate, programId }) {
     if (!usageType) { setSubmitError('Select a usage type.'); return; }
     if (!validPeriod) { setSubmitError('Select a valid period.'); return; }
 
-    if (!financialAccountId) { setSubmitError('Select a financial account.'); return; }
+    if (!financialProductId) { setSubmitError('Select a financial product.'); return; }
 
-    const fa = selectedFinancialAccount;
+    const fa = selectedFinancialProduct;
     if (!fa || fa.creditMin == null || fa.creditMax == null || !fa.purchaseApr || !fa.billingCycle || fa.gracePeriod == null) {
-      setSubmitError('Selected financial account is missing required credit settings.'); return;
+      setSubmitError('Selected financial product is missing required credit terms.'); return;
     }
 
     const faMinNum = Number(fa.creditMin);
     const faMaxNum = Number(fa.creditMax);
-    if (faMaxNum <= faMinNum) { setSubmitError('Selected financial account has an invalid credit limit range (Max must be greater than Min).'); return; }
+    if (faMaxNum <= faMinNum) { setSubmitError('Selected financial product has an invalid credit limit range (Max must be greater than Min).'); return; }
 
     const faAprNum = parseFloat(fa.purchaseApr);
     if (isNaN(faAprNum) || faAprNum < 0.01 || faAprNum > 99.99) {
-      setSubmitError('Selected financial account has an invalid Purchase APR.'); return;
+      setSubmitError('Selected financial product has an invalid Purchase APR.'); return;
     }
 
     const faGpNum = Number(fa.gracePeriod);
     if (isNaN(faGpNum) || !Number.isInteger(faGpNum) || faGpNum < 1 || faGpNum > 90) {
-      setSubmitError('Selected financial account has an invalid Grace Period.'); return;
+      setSubmitError('Selected financial product has an invalid Grace Period.'); return;
     }
 
     if (!svcName.trim()) { setSubmitError('Customer Service Name is required.'); return; }
@@ -240,14 +298,12 @@ export default function CreateSubProgramView({ navigate, programId }) {
     if (!legalPkgId) { setSubmitError('Select an approved legal terms package.'); return; }
 
     if (rewardEnabled) {
-      if (!rewardName.trim()) { setSubmitError('Enter a reward name.'); return; }
-      if (!rewardType) { setSubmitError('Select a reward type.'); return; }
-      if (!earnRate.trim()) { setSubmitError('Enter an earn rate.'); return; }
-      if (!spendRule) { setSubmitError('Select a spend rule.'); return; }
-      if (!rewardPeriod) { setSubmitError('Select a reward period.'); return; }
-      if (!eventRule) { setSubmitError('Select an event rule.'); return; }
-      if (redemptionOptions.length === 0) { setSubmitError('Select at least one redemption option.'); return; }
-      if (!redemptionThreshold.trim()) { setSubmitError('Enter a redemption threshold.'); return; }
+      const { errors, count } = validateRewardsSection();
+      if (count > 0) {
+        setRewardFieldErrors(errors);
+        setSubmitError(`Please fix ${count} field${count > 1 ? 's' : ''} in the Rewards Program section.`);
+        return;
+      }
     }
 
     setSubmitError('');
@@ -273,11 +329,11 @@ export default function CreateSubProgramView({ navigate, programId }) {
       usageType,
       classification,
       validPeriod,
-      financialAccountId: fa.id,
-      financialAccountSnapshot: {
+      financialProductId: fa.id,
+      financialProductSnapshot: {
         id: fa.id,
         name: fa.name,
-        type: fa.type,
+        productType: fa.productType,
         currency: fa.currency,
         creditMin: fa.creditMin,
         creditMax: fa.creditMax,
@@ -304,19 +360,33 @@ export default function CreateSubProgramView({ navigate, programId }) {
       legalTermsSnapshot: selectedLegalPkg ? { ...selectedLegalPkg } : null,
       rewardsEnabled: rewardEnabled,
       rewardsProgram: rewardEnabled ? {
-        name: rewardName.trim(),
-        type: rewardType,
-        description: rewardDescription.trim(),
-        earnRate: earnRate.trim(),
-        spendRule,
-        spendMin: spendMin ? Number(spendMin) : null,
-        spendMax: spendMax ? Number(spendMax) : null,
-        mccRules: mccTags,
-        period: rewardPeriod,
-        eventRule,
-        redemptionOptions,
-        pointsExpiry,
-        redemptionThreshold: redemptionThreshold.trim(),
+        programName: rewardsProgramName.trim(),
+        accrualBasis,
+        postingTiming,
+        baseEarningRate: { value: parseFloat(baseMultiplier) || 1, unit: 'points_per_dollar' },
+        earningRules: bonusCategories.filter(c => c.enabled).map(c => ({
+          id: 'RULE-' + c.key.toUpperCase(),
+          name: `${c.key} Bonus`,
+          multiplier: parseFloat(c.multiplier) || 2,
+          unit: 'points_per_dollar',
+          mccCodes: (c.mccInput || '').split(',').map(s => s.trim()).filter(Boolean),
+          status: 'active',
+          startDate: null,
+          endDate: null,
+        })),
+        redemptionMethods: [
+          {
+            type: 'statement_credit',
+            enabled: true,
+            conversion: {
+              points: parseInt(conversionPoints, 10) || 1000,
+              amount: parseFloat(conversionAmount) || 10,
+              currency: 'USD',
+            },
+            minimumIncrement: parseInt(minimumRedemptionIncrement, 10) || 1000,
+          },
+          { type: 'external', enabled: false, status: 'coming_soon' },
+        ],
       } : null,
       limitMin,
       limitMax,
@@ -346,7 +416,7 @@ export default function CreateSubProgramView({ navigate, programId }) {
             <Icon name="chev-right" size={12} style={{ opacity: 0.4 }} />
             <button onClick={() => navigate('program-detail', programId)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fta-text-3)', fontSize: 13, padding: 0 }}>{programObj.name}</button>
             <Icon name="chev-right" size={12} style={{ opacity: 0.4 }} />
-            <span style={{ color: 'var(--fta-text-1)' }}>Creating sub-program under {programObj.name}</span>
+            <span style={{ color: 'var(--fta-text-5)', fontWeight: 500 }}>Creating sub-program under {programObj.name}</span>
           </>
         ) : (
           <>
@@ -354,7 +424,7 @@ export default function CreateSubProgramView({ navigate, programId }) {
               <Icon name="chev-left" size={13} /> Sub-program
             </button>
             <Icon name="chev-right" size={12} style={{ opacity: 0.4 }} />
-            <span style={{ color: 'var(--fta-text-1)' }}>Create New Sub-program</span>
+            <span style={{ color: 'var(--fta-text-5)', fontWeight: 500 }}>Create New Sub-program</span>
           </>
         )}
       </div>
@@ -426,8 +496,8 @@ export default function CreateSubProgramView({ navigate, programId }) {
                   <>
                     <div style={{ background: 'var(--fta-fill-2)', border: '1.5px solid var(--fta-line-2)', borderRadius: 6, padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <div>
-                        <div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--fta-text-1)' }}>{programObj.name}</div>
-                        <div style={{ fontSize: 12, color: 'var(--fta-text-3)', marginTop: 2, fontFamily: 'monospace' }}>{programObj.id}</div>
+                        <div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--foreground)' }}>{programObj.name}</div>
+                        <div style={{ fontSize: 12, color: 'var(--fta-text-4)', marginTop: 2, fontFamily: 'monospace' }}>{programObj.id}</div>
                       </div>
                       <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: programObj.status === 'Active' ? '#c6f6d5' : 'var(--fta-fill-3)', color: programObj.status === 'Active' ? '#276749' : 'var(--fta-text-3)' }}>{programObj.status}</span>
                     </div>
@@ -523,31 +593,31 @@ export default function CreateSubProgramView({ navigate, programId }) {
                   </FormField>
                 </div>
                 <hr style={{ border: 'none', borderTop: '1px solid var(--fta-line-3)', margin: '20px 0 16px' }} />
-                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 14 }}>Financial Account</div>
-                <FormField label="Financial Account" required style={{ marginBottom: selectedFinancialAccount ? 16 : 6 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 14 }}>Financial Product</div>
+                <FormField label="Financial Product" required style={{ marginBottom: selectedFinancialProduct ? 16 : 6 }}>
                   <div className="select">
-                    <select value={financialAccountId} onChange={e => setFinancialAccountId(e.target.value)}>
-                      <option value="">— Select Financial Account —</option>
-                      {AppData.financialAccounts.map(a => (
+                    <select value={financialProductId} onChange={e => setFinancialProductId(e.target.value)}>
+                      <option value="">— Select Financial Product —</option>
+                      {AppData.financialProducts.map(a => (
                         <option key={a.id} value={a.id}>{a.name} ({a.id})</option>
                       ))}
                     </select>
                   </div>
-                  {!financialAccountId && (
+                  {!financialProductId && (
                     <div style={{ fontSize: 12, color: 'var(--fta-text-3)', marginTop: 6 }}>
-                      Select a financial account to load credit limit, APR, billing cycle, and grace period settings.
+                      Select a financial product to load credit limit, APR, billing cycle, and grace period settings.
                     </div>
                   )}
                 </FormField>
 
-                {selectedFinancialAccount && (
+                {selectedFinancialProduct && (
                   <div style={{ background: 'var(--fta-fill-2)', border: '1px solid var(--fta-line-2)', borderRadius: 8, padding: '16px 18px', marginBottom: 16 }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--fta-text-3)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 12 }}>Financial Account Details</div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--fta-text-3)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 12 }}>Financial Product Details</div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px 24px', marginBottom: 18 }}>
                       {[
-                        ['Name',     selectedFinancialAccount.name],
-                        ['Type',     selectedFinancialAccount.type],
-                        ['Currency', selectedFinancialAccount.currency],
+                        ['Product Name', selectedFinancialProduct.name],
+                        ['Product Type', selectedFinancialProduct.productType],
+                        ['Currency',     selectedFinancialProduct.currency],
                       ].map(([label, val]) => (
                         <div key={label}>
                           <div style={{ fontSize: 11, color: 'var(--fta-text-3)', marginBottom: 2 }}>{label}</div>
@@ -555,14 +625,14 @@ export default function CreateSubProgramView({ navigate, programId }) {
                         </div>
                       ))}
                     </div>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--fta-text-3)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 12 }}>Credit Settings</div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--fta-text-3)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 12 }}>Credit Terms</div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 24px' }}>
                       {[
-                        ['Credit Limit Range (Min, USD)', selectedFinancialAccount.creditMin ? `$ ${Number(selectedFinancialAccount.creditMin).toLocaleString()}` : '—'],
-                        ['Credit Limit Range (Max, USD)', selectedFinancialAccount.creditMax ? `$ ${Number(selectedFinancialAccount.creditMax).toLocaleString()}` : '—'],
-                        ['Purchase APR (%)',              selectedFinancialAccount.purchaseApr ? `${selectedFinancialAccount.purchaseApr}%` : '—'],
-                        ['Billing Cycle',                 selectedFinancialAccount.billingCycle || '—'],
-                        ['Grace Period (days)',           selectedFinancialAccount.gracePeriod ? `${selectedFinancialAccount.gracePeriod} days` : '—'],
+                        ['Credit Limit Range (Min, USD)', selectedFinancialProduct.creditMin ? `$ ${Number(selectedFinancialProduct.creditMin).toLocaleString()}` : '—'],
+                        ['Credit Limit Range (Max, USD)', selectedFinancialProduct.creditMax ? `$ ${Number(selectedFinancialProduct.creditMax).toLocaleString()}` : '—'],
+                        ['Purchase APR (%)',              selectedFinancialProduct.purchaseApr ? `${selectedFinancialProduct.purchaseApr}%` : '—'],
+                        ['Billing Cycle',                 selectedFinancialProduct.billingCycle || '—'],
+                        ['Grace Period (days)',           selectedFinancialProduct.gracePeriod ? `${selectedFinancialProduct.gracePeriod} days` : '—'],
                       ].map(([label, val]) => (
                         <div key={label}>
                           <div style={{ fontSize: 11, color: 'var(--fta-text-3)', marginBottom: 2 }}>{label}</div>
@@ -579,159 +649,256 @@ export default function CreateSubProgramView({ navigate, programId }) {
               {/* Rewards Program accordion */}
               <Accordion
                 title="Rewards Program"
-                sub="Configure reward policies for this sub-program, including earn rates, spend rules, and redemption settings."
+                sub="Configure how cardholders earn, accrue, and redeem rewards for this subprogram. These rules apply to all accounts issued under this subprogram."
                 open={openAcc.reward}
-                done={!rewardEnabled || !!(rewardName.trim() && rewardType && earnRate.trim() && spendRule && rewardPeriod && eventRule && redemptionOptions.length > 0 && redemptionThreshold.trim())}
+                done={!rewardEnabled || !!(rewardsProgramName.trim().length >= 2 && parseFloat(baseMultiplier) >= 0 && parseFloat(baseMultiplier) <= 10 && parseInt(conversionPoints, 10) >= 1 && parseFloat(conversionAmount) >= 0.01 && parseInt(minimumRedemptionIncrement, 10) >= 1)}
                 onToggle={() => toggleAcc('reward')}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20, padding: '12px 14px', background: 'var(--fta-fill-2)', borderRadius: 8 }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                    <input type="checkbox" checked={rewardEnabled} onChange={e => setRewardEnabled(e.target.checked)} style={{ accentColor: 'var(--fta-primary-6)', width: 15, height: 15 }} />
-                    <span style={{ fontSize: 13, fontWeight: 600 }}>Enable Rewards Program for this Sub-Program</span>
-                  </label>
+                {/* Toggle switch */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, padding: '14px 16px', background: 'var(--fta-fill-2)', borderRadius: 8 }}>
+                  <div
+                    style={{ width: 38, height: 22, borderRadius: 11, cursor: 'pointer', background: rewardEnabled ? 'var(--fta-primary-6)' : '#CBD5E0', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}
+                    onClick={() => { setRewardEnabled(v => !v); setRewardFieldErrors({}); setRewardError(''); }}
+                  >
+                    <div style={{ position: 'absolute', top: 3, left: rewardEnabled ? 19 : 3, width: 16, height: 16, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.15)', transition: 'left 0.2s' }} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: rewardEnabled ? 'var(--fta-text-5)' : 'var(--fta-text-3)' }}>Enable Rewards Program</div>
+                    <div style={{ fontSize: 11.5, color: 'var(--fta-text-3)', marginTop: 2 }}>Enable rewards for all accounts issued under this subprogram.</div>
+                  </div>
                 </div>
+
+                {!rewardEnabled && (
+                  <div style={{ padding: '24px 0 8px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 22, marginBottom: 10, opacity: 0.3 }}>✦</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fta-text-3)', marginBottom: 6 }}>Rewards are not enabled</div>
+                    <div style={{ fontSize: 12, color: 'var(--fta-text-4)', maxWidth: 340, margin: '0 auto', lineHeight: 1.6 }}>Turn on rewards to configure earning rules, posting timing, and redemption options for this subprogram.</div>
+                  </div>
+                )}
 
                 {rewardEnabled && (
                   <>
-                    <div style={{ display: 'flex', gap: 18, marginBottom: 18 }}>
-                      <FormField label="Reward Name" required>
-                        <div className="input"><input type="text" placeholder="e.g. Cashback Rewards" value={rewardName} onChange={e => setRewardName(e.target.value)} /></div>
-                      </FormField>
-                      <FormField label="Reward Type" required>
-                        <div className="select"><select value={rewardType} onChange={e => setRewardType(e.target.value)}>
-                          <option value="">Please Select</option>
-                          <option>Cashback</option>
-                          <option>Points</option>
-                          <option>Miles</option>
-                          <option>Tiered Points</option>
-                        </select></div>
-                      </FormField>
-                    </div>
-                    <FormField label="Reward Description" style={{ marginBottom: 18 }}>
-                      <div className="input" style={{ padding: 0 }}>
-                        <textarea
-                          placeholder="Brief description of the reward program..."
-                          rows={2}
-                          value={rewardDescription}
-                          onChange={e => setRewardDescription(e.target.value)}
-                          style={{ width: '100%', resize: 'vertical', minHeight: 56, fontFamily: 'inherit', fontSize: 13, padding: '8px 10px', border: 'none', background: 'transparent', outline: 'none', boxSizing: 'border-box' }}
-                        />
-                      </div>
-                    </FormField>
-
-                    <hr style={{ border: 'none', borderTop: '1px solid var(--fta-line-3)', margin: '4px 0 18px' }} />
-                    <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 14 }}>Earn Rules</div>
-
-                    <div style={{ display: 'flex', gap: 18, marginBottom: 18 }}>
-                      <FormField label="Earn Rate" required>
-                        <div className="input"><input type="text" placeholder="e.g. 1.5% or 2x points" value={earnRate} onChange={e => setEarnRate(e.target.value)} /></div>
-                      </FormField>
-                      <FormField label="Spend Rule" required>
-                        <div className="select"><select value={spendRule} onChange={e => setSpendRule(e.target.value)}>
-                          <option value="">Please Select</option>
-                          <option>All Spend</option>
-                          <option>Greater than</option>
-                          <option>Less than</option>
-                          <option>Between</option>
-                        </select></div>
-                      </FormField>
-                    </div>
-
-                    {(spendRule === 'Greater than' || spendRule === 'Less than' || spendRule === 'Between') && (
-                      <div style={{ display: 'flex', gap: 18, marginBottom: 18 }}>
-                        <FormField label={spendRule === 'Less than' ? 'Maximum Amount (USD)' : 'Minimum Amount (USD)'}>
-                          <div className="input"><input type="number" placeholder="e.g. 10" min="0" value={spendMin} onChange={e => setSpendMin(e.target.value)} /></div>
-                        </FormField>
-                        {spendRule === 'Between' && (
-                          <FormField label="Maximum Amount (USD)">
-                            <div className="input"><input type="number" placeholder="e.g. 1000" min="0" value={spendMax} onChange={e => setSpendMax(e.target.value)} /></div>
-                          </FormField>
-                        )}
+                    {/* Error summary */}
+                    {Object.keys(rewardFieldErrors).length > 0 && (
+                      <div style={{ marginBottom: 16, padding: '12px 14px', background: '#fff5f5', border: '1px solid #feb2b2', borderRadius: 8, fontSize: 13, color: '#c53030' }}>
+                        Please fix {Object.keys(rewardFieldErrors).length} field{Object.keys(rewardFieldErrors).length > 1 ? 's' : ''} before saving this rewards program.
                       </div>
                     )}
 
-                    <div style={{ display: 'flex', gap: 18, marginBottom: 18 }}>
-                      <FormField label="Reward Period" required>
-                        <div className="select"><select value={rewardPeriod} onChange={e => setRewardPeriod(e.target.value)}>
-                          <option value="">Please Select</option>
-                          <option>Per Transaction</option>
-                          <option>Per Billing Cycle</option>
-                          <option>Calendar Year</option>
-                        </select></div>
-                      </FormField>
-                      <FormField label="Event Rule" required>
-                        <div className="select"><select value={eventRule} onChange={e => setEventRule(e.target.value)}>
-                          <option value="">Please Select</option>
-                          <option>Transaction Settlement</option>
-                          <option>Billing Cycle</option>
-                          <option>Statement</option>
-                        </select></div>
-                      </FormField>
-                    </div>
-
-                    <FormField label="MCC Rules" style={{ marginBottom: 18 }}>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', padding: '6px 10px', border: '1px solid var(--fta-line-2)', borderRadius: 6, background: 'var(--fta-fill-1)', minHeight: 38 }}>
-                        {mccTags.map(tag => (
-                          <span key={tag} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'var(--fta-primary-1)', color: 'var(--fta-primary-7)', borderRadius: 4, padding: '2px 8px', fontSize: 12 }}>
-                            {tag}
-                            <button onClick={() => setMccTags(prev => prev.filter(t => t !== tag))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: 0, lineHeight: 1, fontSize: 14 }}>×</button>
-                          </span>
-                        ))}
-                        <input
-                          type="text"
-                          placeholder={mccTags.length === 0 ? 'Type MCC code and press Enter…' : ''}
-                          value={mccInput}
-                          onChange={e => setMccInput(e.target.value)}
-                          onKeyDown={e => {
-                            if ((e.key === 'Enter' || e.key === ',') && mccInput.trim()) {
-                              e.preventDefault();
-                              const val = mccInput.trim().replace(/,/g, '');
-                              if (val && !mccTags.includes(val)) setMccTags(prev => [...prev, val]);
-                              setMccInput('');
-                            } else if (e.key === 'Backspace' && !mccInput && mccTags.length) {
-                              setMccTags(prev => prev.slice(0, -1));
-                            }
-                          }}
-                          style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: 13, minWidth: 120, flex: 1 }}
-                        />
+                    {/* Program Name */}
+                    <div style={{ marginBottom: 18 }}>
+                      <div style={{ fontSize: 12, color: 'var(--fta-text-3)', fontWeight: 600, marginBottom: 4 }}>
+                        Rewards Program Name <span style={{ color: '#e53e3e' }}>*</span>
                       </div>
-                      <div style={{ fontSize: 11.5, color: 'var(--fta-text-4)', marginTop: 4 }}>Enter MCC codes (e.g. 5411) and press Enter to add. Leave empty to apply to all categories.</div>
-                    </FormField>
+                      <div className="input" style={{ borderColor: rewardFieldErrors.programName ? '#fc8181' : undefined }}>
+                        <input type="text" placeholder="e.g. Travel Rewards Program" maxLength={80} value={rewardsProgramName}
+                          onChange={e => setRewardsProgramName(e.target.value.replace(/[<>{}]/g, ''))} />
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+                        {rewardFieldErrors.programName
+                          ? <div style={{ fontSize: 11.5, color: '#c53030' }}>{rewardFieldErrors.programName}</div>
+                          : <div style={{ fontSize: 11.5, color: 'var(--fta-text-3)' }}>2–80 characters. Visible to cardholders.</div>
+                        }
+                        <div style={{ fontSize: 11, color: 'var(--fta-text-3)', flexShrink: 0, marginLeft: 8 }}>{rewardsProgramName.length}/80</div>
+                      </div>
+                    </div>
 
                     <hr style={{ border: 'none', borderTop: '1px solid var(--fta-line-3)', margin: '4px 0 18px' }} />
-                    <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 14 }}>Redemption Settings</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Earning Rules</div>
+                    <div style={{ fontSize: 12, color: 'var(--fta-text-3)', marginBottom: 14 }}>Define how cardholders earn points on purchases.</div>
 
-                    <FormField label="Redemption Options" style={{ marginBottom: 18 }}>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, padding: '6px 0' }}>
-                        {['Statement Credit', 'Bank Transfer', 'Gift Cards', 'Travel Booking', 'Merchandise'].map(opt => (
-                          <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', fontSize: 13 }}>
-                            <input
-                              type="checkbox"
-                              checked={redemptionOptions.includes(opt)}
-                              onChange={e => setRedemptionOptions(prev => e.target.checked ? [...prev, opt] : prev.filter(o => o !== opt))}
-                              style={{ accentColor: 'var(--fta-primary-6)', width: 14, height: 14 }}
-                            />
-                            {opt}
-                          </label>
-                        ))}
+                    {/* Base earning rate */}
+                    <div style={{ marginBottom: 14, padding: '14px 16px', background: 'var(--fta-fill-2)', border: `1.5px solid ${rewardFieldErrors.baseMultiplier ? '#fc8181' : 'var(--fta-line-2)'}`, borderRadius: 8 }}>
+                      <div style={{ fontSize: 12, color: 'var(--fta-text-3)', marginBottom: 8, fontWeight: 600 }}>
+                        Base Earning Rate <span style={{ color: '#e53e3e' }}>*</span>
                       </div>
-                    </FormField>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <div className="input" style={{ width: 80 }}>
+                          <input type="number" min="0" max="10" step="0.01" placeholder="1" value={baseMultiplier}
+                            onChange={e => setBaseMultiplier(e.target.value)} />
+                        </div>
+                        <span style={{ fontSize: 13, fontWeight: 500 }}>x points per $1</span>
+                        <span style={{ fontSize: 11.5, color: 'var(--fta-text-3)' }}>on all eligible purchases</span>
+                      </div>
+                      {rewardFieldErrors.baseMultiplier
+                        ? <div style={{ fontSize: 11.5, color: '#c53030', marginTop: 6 }}>{rewardFieldErrors.baseMultiplier}</div>
+                        : <div style={{ fontSize: 11.5, color: 'var(--fta-text-3)', marginTop: 6 }}>Range: 0–10. 0x means no base rewards. Up to 2 decimal places (e.g. 1.5).</div>
+                      }
+                    </div>
 
-                    <div style={{ display: 'flex', gap: 18, marginBottom: 14 }}>
-                      <FormField label="Points Expiry">
-                        <div className="select"><select value={pointsExpiry} onChange={e => setPointsExpiry(e.target.value)}>
-                          <option value="">No Expiry</option>
-                          <option>12 Months</option>
-                          <option>24 Months</option>
-                          <option>36 Months</option>
-                          <option>End of Calendar Year</option>
-                        </select></div>
-                      </FormField>
-                      <FormField label="Redemption Threshold">
-                        <div className="input"><input type="text" placeholder="e.g. 500 points or $5" value={redemptionThreshold} onChange={e => setRedemptionThreshold(e.target.value)} /></div>
-                      </FormField>
+                    {/* Bonus categories */}
+                    <div style={{ marginBottom: 18 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+                        <div style={{ fontSize: 12, color: 'var(--fta-text-3)', fontWeight: 600 }}>Bonus Categories</div>
+                        <div style={{ fontSize: 11, color: 'var(--fta-text-4)' }}>Optional — enable to override base rate</div>
+                      </div>
+                      {bonusCategories.map((cat, idx) => (
+                        <div key={cat.key} style={{
+                          marginBottom: 8, padding: '12px 14px',
+                          background: cat.enabled ? '#fff' : 'var(--fta-fill-2)',
+                          border: `1.5px solid ${cat.enabled ? 'var(--fta-primary-3)' : 'var(--fta-line-2)'}`,
+                          borderRadius: 8,
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: cat.enabled ? 10 : 0 }}>
+                            <input type="checkbox" checked={cat.enabled}
+                              onChange={e => setBonusCategories(prev => prev.map((c, i) => i === idx ? { ...c, enabled: e.target.checked } : c))}
+                              style={{ accentColor: 'var(--fta-primary-6)', width: 15, height: 15, flexShrink: 0 }} />
+                            <span style={{ fontSize: 13, fontWeight: 600, minWidth: 80 }}>{cat.key}</span>
+                            {cat.enabled ? (
+                              <>
+                                <div className="input" style={{ width: 72, borderColor: rewardFieldErrors[`bonusMult_${idx}`] ? '#fc8181' : undefined }}>
+                                  <input type="number" min="0.01" max="20" step="0.01" value={cat.multiplier}
+                                    onChange={e => setBonusCategories(prev => prev.map((c, i) => i === idx ? { ...c, multiplier: e.target.value } : c))} />
+                                </div>
+                                <span style={{ fontSize: 12.5, fontWeight: 500 }}>x points per $1</span>
+                              </>
+                            ) : (
+                              <span style={{ fontSize: 12, color: 'var(--fta-text-3)' }}>Not enabled</span>
+                            )}
+                          </div>
+                          {cat.enabled && (
+                            <>
+                              {rewardFieldErrors[`bonusMult_${idx}`] && (
+                                <div style={{ fontSize: 11.5, color: '#c53030', marginBottom: 8 }}>{rewardFieldErrors[`bonusMult_${idx}`]}</div>
+                              )}
+                              <div>
+                                <div style={{ fontSize: 11.5, color: 'var(--fta-text-3)', marginBottom: 4 }}>
+                                  MCC codes <span style={{ color: 'var(--fta-text-4)' }}>(4-digit, comma-separated)</span>
+                                </div>
+                                <div className="input" style={{ borderColor: rewardFieldErrors[`mcc_${idx}`] ? '#fc8181' : undefined }}>
+                                  <input type="text" placeholder="e.g. 3000-3999, 5812" value={cat.mccInput}
+                                    onChange={e => setBonusCategories(prev => prev.map((c, i) => i === idx ? { ...c, mccInput: e.target.value.replace(/[a-zA-Z]/g, '') } : c))} />
+                                </div>
+                                {rewardFieldErrors[`mcc_${idx}`]
+                                  ? <div style={{ fontSize: 11.5, color: '#c53030', marginTop: 4 }}>{rewardFieldErrors[`mcc_${idx}`]}</div>
+                                  : <div style={{ fontSize: 11, color: 'var(--fta-text-3)', marginTop: 4 }}>Enter 4-digit codes or ranges (e.g. 3000-3999). Commas separate multiple values.</div>
+                                }
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                      {!bonusCategories.some(c => c.enabled) && (
+                        <div style={{ fontSize: 12, color: 'var(--fta-text-4)', paddingLeft: 4 }}>No bonus categories added. Enable categories above to reward specific merchant types.</div>
+                      )}
+                    </div>
+
+                    <hr style={{ border: 'none', borderTop: '1px solid var(--fta-line-3)', margin: '4px 0 18px' }} />
+                    <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Accrual Basis</div>
+                    <div style={{ fontSize: 12, color: 'var(--fta-text-3)', marginBottom: 10 }}>Choose how earning events are triggered.</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18, padding: '12px 14px', background: 'var(--fta-fill-2)', borderRadius: 8 }}>
+                      <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer' }}>
+                        <input type="radio" name="accrualBasis" value="purchase_based" checked={accrualBasis === 'purchase_based'} onChange={() => setAccrualBasis('purchase_based')} style={{ accentColor: 'var(--fta-primary-6)', marginTop: 2, flexShrink: 0 }} />
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 500 }}>Purchase based</div>
+                          <div style={{ fontSize: 11.5, color: 'var(--fta-text-3)', marginTop: 2 }}>Rewards are earned from eligible cleared transactions.</div>
+                        </div>
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer' }}>
+                        <input type="radio" name="accrualBasis" value="payment_based" checked={accrualBasis === 'payment_based'} onChange={() => setAccrualBasis('payment_based')} style={{ accentColor: 'var(--fta-primary-6)', marginTop: 2, flexShrink: 0 }} />
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 500 }}>Payment based</div>
+                          <div style={{ fontSize: 11.5, color: 'var(--fta-text-3)', marginTop: 2 }}>Rewards are earned from completed payments.</div>
+                        </div>
+                      </label>
+                    </div>
+
+                    <hr style={{ border: 'none', borderTop: '1px solid var(--fta-line-3)', margin: '4px 0 18px' }} />
+                    <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Reward Posting Timing</div>
+                    <div style={{ fontSize: 12, color: 'var(--fta-text-3)', marginBottom: 10 }}>Choose when earned rewards become available to the cardholder.</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18, padding: '12px 14px', background: 'var(--fta-fill-2)', borderRadius: 8 }}>
+                      <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer' }}>
+                        <input type="radio" name="postingTiming" value="after_clearing" checked={postingTiming === 'after_clearing'} onChange={() => setPostingTiming('after_clearing')} style={{ accentColor: 'var(--fta-primary-6)', marginTop: 2, flexShrink: 0 }} />
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 500 }}>After transaction clearing</div>
+                          <div style={{ fontSize: 11.5, color: 'var(--fta-text-3)', marginTop: 2 }}>Points are posted when the transaction clears. They may initially appear as pending.</div>
+                        </div>
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer' }}>
+                        <input type="radio" name="postingTiming" value="after_statement" checked={postingTiming === 'after_statement'} onChange={() => setPostingTiming('after_statement')} style={{ accentColor: 'var(--fta-primary-6)', marginTop: 2, flexShrink: 0 }} />
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 500 }}>After statement generation</div>
+                          <div style={{ fontSize: 11.5, color: 'var(--fta-text-3)', marginTop: 2 }}>Points are batched and posted at the end of each billing cycle.</div>
+                        </div>
+                      </label>
+                    </div>
+
+                    <hr style={{ border: 'none', borderTop: '1px solid var(--fta-line-3)', margin: '4px 0 18px' }} />
+                    <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Redemption</div>
+                    <div style={{ fontSize: 12, color: 'var(--fta-text-3)', marginBottom: 14 }}>Choose how cardholders can redeem their rewards.</div>
+
+                    {/* Redemption Methods */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 18 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'var(--fta-fill-2)', border: '1.5px solid var(--fta-primary-3)', borderRadius: 8 }}>
+                        <input type="checkbox" checked readOnly style={{ accentColor: 'var(--fta-primary-6)', width: 15, height: 15 }} />
+                        <div style={{ flex: 1 }}>
+                          <span style={{ fontSize: 13, fontWeight: 500 }}>Statement Credit</span>
+                        </div>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--fta-success)' }}>Enabled</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 14px', background: 'var(--fta-fill-2)', border: '1.5px solid var(--fta-line-2)', borderRadius: 8, opacity: 0.55 }}>
+                        <input type="checkbox" disabled style={{ width: 15, height: 15, marginTop: 2, flexShrink: 0 }} />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--fta-text-3)' }}>External Redemption</div>
+                          <div style={{ fontSize: 11.5, color: 'var(--fta-text-3)', marginTop: 2 }}>External partner redemption is not available in this MVP.</div>
+                        </div>
+                        <span style={{ fontSize: 11, fontWeight: 600, background: 'var(--fta-fill-3)', color: 'var(--fta-text-3)', padding: '2px 8px', borderRadius: 10, flexShrink: 0 }}>Coming soon</span>
+                      </div>
+                    </div>
+
+                    {/* Conversion Rate — dual input */}
+                    <div style={{ marginBottom: 16 }}>
+                      <div style={{ fontSize: 12, color: 'var(--fta-text-3)', fontWeight: 600, marginBottom: 4 }}>
+                        Conversion Rate <span style={{ color: '#e53e3e' }}>*</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <div className="input" style={{ width: 88, borderColor: rewardFieldErrors.conversionPoints ? '#fc8181' : undefined }}>
+                          <input type="number" min="1" max="1000000" step="1" placeholder="1000" value={conversionPoints}
+                            onChange={e => setConversionPoints(e.target.value.replace(/[^0-9]/g, '').replace(/^0+/, '') || '')} />
+                        </div>
+                        <span style={{ fontSize: 12.5, fontWeight: 500 }}>points =</span>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--fta-text-2)' }}>$</span>
+                        <div className="input" style={{ width: 88, borderColor: rewardFieldErrors.conversionAmount ? '#fc8181' : undefined }}>
+                          <input type="number" min="0.01" max="10000" step="0.01" placeholder="10.00" value={conversionAmount}
+                            onChange={e => setConversionAmount(e.target.value)} />
+                        </div>
+                        <span style={{ fontSize: 12.5, fontWeight: 500 }}>USD</span>
+                      </div>
+                      {(rewardFieldErrors.conversionPoints || rewardFieldErrors.conversionAmount)
+                        ? <div style={{ fontSize: 11.5, color: '#c53030', marginTop: 4 }}>{rewardFieldErrors.conversionPoints || rewardFieldErrors.conversionAmount}</div>
+                        : <div style={{ fontSize: 11.5, color: 'var(--fta-text-3)', marginTop: 4 }}>
+                            Define how points convert to statement credit.
+                            {conversionPoints && conversionAmount && !isNaN(parseFloat(conversionAmount)) && parseInt(conversionPoints, 10) > 0
+                              ? ` Effective rate: 1 pt = $${(parseFloat(conversionAmount) / parseInt(conversionPoints, 10)).toFixed(4).replace(/\.?0+$/, '')} USD.`
+                              : ''}
+                          </div>
+                      }
+                    </div>
+
+                    {/* Minimum redemption increment */}
+                    <div style={{ marginBottom: 18 }}>
+                      <div style={{ fontSize: 12, color: 'var(--fta-text-3)', fontWeight: 600, marginBottom: 4 }}>
+                        Minimum Redemption Increment <span style={{ color: '#e53e3e' }}>*</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div className="input" style={{ width: 100, borderColor: rewardFieldErrors.minimumRedemption ? '#fc8181' : undefined }}>
+                          <input type="number" min="1" step="1" placeholder="1000" value={minimumRedemptionIncrement}
+                            onChange={e => setMinimumRedemptionIncrement(e.target.value.replace(/[^0-9]/g, '').replace(/^0+/, '') || '')} />
+                        </div>
+                        <span style={{ fontSize: 12.5, fontWeight: 500 }}>points</span>
+                      </div>
+                      {rewardFieldErrors.minimumRedemption
+                        ? <div style={{ fontSize: 11.5, color: '#c53030', marginTop: 4 }}>{rewardFieldErrors.minimumRedemption}</div>
+                        : <div style={{ fontSize: 11.5, color: 'var(--fta-text-3)', marginTop: 4 }}>Cardholders can only redeem in multiples of this increment. Must be a whole number.</div>
+                      }
                     </div>
                   </>
+                )}
+
+                {rewardError && (
+                  <div style={{ marginBottom: 12, padding: '10px 14px', background: '#fff5f5', border: '1px solid #feb2b2', borderRadius: 6, fontSize: 13, color: '#c53030' }}>
+                    {rewardError}
+                  </div>
                 )}
 
                 <button className="btn btn-primary btn-sm" onClick={() => saveAcc('reward')}>Save</button>
@@ -775,10 +942,8 @@ export default function CreateSubProgramView({ navigate, programId }) {
                     }}>
                       {cardFrontArtwork ? (
                         <>
-                          {cardFrontArtwork.fileType !== 'image/svg+xml' && cardFrontArtwork.previewUrl && (
-                            <img src={cardFrontArtwork.previewUrl} alt="front preview" style={{ maxWidth: '90%', maxHeight: '55%', objectFit: 'contain', borderRadius: 4 }} />
-                          )}
-                          <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--fta-text-1)', textAlign: 'center', padding: '0 8px' }}>{cardFrontArtwork.fileName}</div>
+                          <ArtworkPreview artwork={cardFrontArtwork} alt="front preview" />
+                          <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--fta-text-5)', textAlign: 'center', padding: '0 8px' }}>{cardFrontArtwork.fileName}</div>
                           {cardFrontArtwork.width && <div style={{ fontSize: 11, color: 'var(--fta-text-3)' }}>{cardFrontArtwork.width} × {cardFrontArtwork.height} px</div>}
                           <button type="button" className="btn btn-ghost btn-sm" onClick={() => setCardFrontArtwork(null)}>Remove</button>
                         </>
@@ -812,10 +977,8 @@ export default function CreateSubProgramView({ navigate, programId }) {
                     }}>
                       {cardBackArtwork ? (
                         <>
-                          {cardBackArtwork.fileType !== 'image/svg+xml' && cardBackArtwork.previewUrl && (
-                            <img src={cardBackArtwork.previewUrl} alt="back preview" style={{ maxWidth: '90%', maxHeight: '55%', objectFit: 'contain', borderRadius: 4 }} />
-                          )}
-                          <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--fta-text-1)', textAlign: 'center', padding: '0 8px' }}>{cardBackArtwork.fileName}</div>
+                          <ArtworkPreview artwork={cardBackArtwork} alt="back preview" />
+                          <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--fta-text-5)', textAlign: 'center', padding: '0 8px' }}>{cardBackArtwork.fileName}</div>
                           {cardBackArtwork.width && <div style={{ fontSize: 11, color: 'var(--fta-text-3)' }}>{cardBackArtwork.width} × {cardBackArtwork.height} px</div>}
                           <button type="button" className="btn btn-ghost btn-sm" onClick={() => setCardBackArtwork(null)}>Remove</button>
                         </>
@@ -1005,56 +1168,6 @@ export default function CreateSubProgramView({ navigate, programId }) {
             <div style={{ fontSize: 13.5, fontWeight: 600, color: '#1a1a2e' }}>Sub-program created successfully</div>
             <div style={{ fontSize: 12, color: '#718096', marginTop: 2 }}>Redirecting to Subprogram Detail…</div>
           </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function FormField({ label, required, style, children }) {
-  return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', ...style }}>
-      <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--fta-text-4)', marginBottom: 5 }}>
-        {label}{required && <span style={{ color: 'var(--fta-error)', marginLeft: 2 }}>*</span>}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function RadioGroup({ name, options, value, onChange }) {
-  return (
-    <div style={{ display: 'flex', gap: 22, alignItems: 'center', padding: '6px 0', flexWrap: 'wrap' }}>
-      {options.map(o => (
-        <label key={o.value} style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', fontSize: 13 }}>
-          <input type="radio" name={name} value={o.value} checked={value === o.value} onChange={() => onChange(o.value)} style={{ accentColor: 'var(--fta-primary-6)', width: 15, height: 15 }} />
-          {o.label}
-        </label>
-      ))}
-    </div>
-  );
-}
-
-function Accordion({ title, sub, open, done, onToggle, children, badge }) {
-  return (
-    <div style={{ border: '1.5px solid var(--fta-line-2)', borderRadius: 8, marginBottom: 10, overflow: 'hidden' }}>
-      <div onClick={onToggle} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', cursor: 'pointer', background: 'var(--fta-fill-2)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 11, color: 'var(--fta-text-3)', transform: open ? 'rotate(90deg)' : 'none', display: 'inline-block', transition: 'transform .2s' }}>▶</span>
-          <div>
-            <div style={{ fontSize: 13.5, fontWeight: 600 }}>{title}</div>
-            {sub && <div style={{ fontSize: 12, color: 'var(--fta-text-4)', marginTop: 2 }}>{sub}</div>}
-          </div>
-        </div>
-        {badge || (
-          <span style={{ fontSize: 12, fontWeight: 500, color: done ? 'var(--fta-success)' : 'var(--fta-warning)' }}>
-            {done ? 'Complete' : 'Incomplete'}
-          </span>
-        )}
-      </div>
-      {open && (
-        <div style={{ padding: '20px', borderTop: '1px solid var(--fta-line-2)', background: '#fff' }}>
-          {children}
         </div>
       )}
     </div>
